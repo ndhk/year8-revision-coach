@@ -16,11 +16,57 @@ function buildInitialSubjects() {
   }))
 }
 
+// Ensures loaded/imported subject data has the correct structure so a
+// corrupted or partially-migrated localStorage value cannot crash the app.
+function sanitizeSubjects(loaded) {
+  if (!Array.isArray(loaded) || loaded.length === 0) return buildInitialSubjects()
+  return loaded.map((sub) => ({
+    id: sub.id || '',
+    name: sub.name || '',
+    emoji: sub.emoji || '📚',
+    color: sub.color || '#5b4cdb',
+    description: sub.description || '',
+    guidePageRange: sub.guidePageRange || '',
+    ...sub,
+    topics: Array.isArray(sub.topics)
+      ? sub.topics.map((topic) => ({
+          id: topic.id || '',
+          title: topic.title || '',
+          subjectId: topic.subjectId || sub.id || '',
+          ...topic,
+          checklistItems: Array.isArray(topic.checklistItems)
+            ? topic.checklistItems.map((item) => ({
+                status: 'not_started',
+                confidence: null,
+                lastRevisedAt: null,
+                nextReviewAt: null,
+                revisionCount: 0,
+                ...item,
+              }))
+            : [],
+        }))
+      : [],
+  }))
+}
+
+function sanitizeSessions(loaded) {
+  if (!Array.isArray(loaded)) return []
+  return loaded.filter((s) => s && typeof s === 'object' && s.id && s.subjectId)
+}
+
+function sanitizeRewards(loaded) {
+  if (!loaded || typeof loaded !== 'object') return { points: 0, badges: [] }
+  return {
+    points: typeof loaded.points === 'number' ? loaded.points : 0,
+    badges: Array.isArray(loaded.badges) ? loaded.badges : [],
+  }
+}
+
 function getInitialState() {
   const profile = load(KEYS.PROFILE)
-  const subjects = load(KEYS.SUBJECTS) || buildInitialSubjects()
-  const sessions = load(KEYS.SESSIONS) || []
-  const rewards = load(KEYS.REWARDS) || { points: 0, badges: [] }
+  const subjects = sanitizeSubjects(load(KEYS.SUBJECTS))
+  const sessions = sanitizeSessions(load(KEYS.SESSIONS))
+  const rewards = sanitizeRewards(load(KEYS.REWARDS))
   const settings = load(KEYS.SETTINGS) || { name: '', theme: 'light' }
   return { profile, subjects, sessions, rewards, settings, newBadges: [] }
 }
@@ -179,9 +225,9 @@ function reducer(state, action) {
       const d = action.data
       return {
         profile: d.PROFILE || state.profile,
-        subjects: d.SUBJECTS || buildInitialSubjects(),
-        sessions: d.SESSIONS || [],
-        rewards: d.REWARDS || { points: 0, badges: [] },
+        subjects: sanitizeSubjects(d.SUBJECTS),
+        sessions: sanitizeSessions(d.SESSIONS),
+        rewards: sanitizeRewards(d.REWARDS),
         settings: d.SETTINGS || state.settings,
         newBadges: [],
       }

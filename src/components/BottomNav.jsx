@@ -11,7 +11,7 @@ const NAV_ITEMS = [
 
 export default function BottomNav() {
   return (
-    <nav className="bottom-nav">
+    <nav className="bottom-nav" aria-label="Main navigation">
       {NAV_ITEMS.map(({ to, label, icon }) => (
         <NavLink
           key={to}

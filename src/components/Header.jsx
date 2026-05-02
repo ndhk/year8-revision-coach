@@ -39,7 +39,7 @@ export default function Header() {
         <button
           className="app-header__points"
           onClick={() => navigate('/progress')}
-          title="View progress"
+          aria-label={`${rewards.points} points — view progress`}
         >
           ⭐ {rewards.points}
         </button>

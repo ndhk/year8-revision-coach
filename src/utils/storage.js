@@ -43,15 +43,29 @@ export function exportAllData() {
 }
 
 export function validateImportData(data) {
-  if (!data || typeof data !== 'object') return 'Not a valid JSON object.'
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return 'Not a valid JSON object.'
   if (data.appName && data.appName !== 'Year 8 Revision Coach') {
     return 'This file does not appear to be from Year 8 Revision Coach.'
   }
   if (!data.SUBJECTS && !data.PROFILE) {
     return 'File is missing expected revision data (SUBJECTS or PROFILE).'
   }
-  if (data.SUBJECTS && !Array.isArray(data.SUBJECTS)) {
-    return 'SUBJECTS field is not a valid array.'
+  if (data.SUBJECTS !== undefined) {
+    if (!Array.isArray(data.SUBJECTS)) return 'SUBJECTS field is not a valid array.'
+    for (const sub of data.SUBJECTS) {
+      if (!sub || typeof sub !== 'object') return 'SUBJECTS contains an invalid entry.'
+      if (sub.topics !== undefined && !Array.isArray(sub.topics)) {
+        return `Subject "${sub.name || sub.id}" has an invalid topics field.`
+      }
+    }
+  }
+  if (data.SESSIONS !== undefined && !Array.isArray(data.SESSIONS)) {
+    return 'SESSIONS field is not a valid array.'
+  }
+  if (data.REWARDS !== undefined) {
+    if (typeof data.REWARDS !== 'object' || Array.isArray(data.REWARDS)) {
+      return 'REWARDS field is not a valid object.'
+    }
   }
   return null // null = valid
 }

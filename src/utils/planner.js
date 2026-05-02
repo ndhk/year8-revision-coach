@@ -2,6 +2,15 @@ import { isOverdue, daysSince } from './dates.js'
 
 const PRIORITY_SUBJECTS = ['maths', 'english', 'science', 'french']
 
+const STATUS_WEIGHT = {
+  not_started: 0,
+  needs_review: 0.2,
+  learned: 0.35,
+  practised: 0.6,
+  tested: 0.8,
+  secure: 1.0,
+}
+
 export function getAllChecklistItems(subjects) {
   const items = []
   for (const subject of subjects) {
@@ -52,7 +61,8 @@ export function getSuggestedItems(subjects, limit = 3) {
 
 export function getSubjectProgress(subject) {
   let total = 0
-  let done = 0
+  let done = 0        // items touched (not_started = 0, anything else = 1)
+  let weighted = 0    // weighted sum using STATUS_WEIGHT
   let secure = 0
   let notStarted = 0
   let lowConfidence = 0
@@ -60,9 +70,11 @@ export function getSubjectProgress(subject) {
   let confidenceSum = 0
   let confidenceCount = 0
 
-  for (const topic of subject.topics) {
-    for (const item of topic.checklistItems) {
+  for (const topic of (subject.topics || [])) {
+    for (const item of (topic.checklistItems || [])) {
       total++
+      const w = STATUS_WEIGHT[item.status] ?? 0
+      weighted += w
       if (item.status !== 'not_started') done++
       if (item.status === 'secure') secure++
       if (item.status === 'not_started') notStarted++
@@ -84,28 +96,34 @@ export function getSubjectProgress(subject) {
     lowConfidence,
     needsReview,
     avgConfidence,
-    pct: total > 0 ? Math.round((done / total) * 100) : 0,
+    pct: total > 0 ? Math.round((weighted / total) * 100) : 0,
   }
 }
 
 export function getOverallProgress(subjects) {
   let total = 0
   let done = 0
+  let weighted = 0
   let secure = 0
   let needsReview = 0
-  for (const subject of subjects) {
-    const p = getSubjectProgress(subject)
-    total += p.total
-    done += p.done
-    secure += p.secure
-    needsReview += p.needsReview
+  for (const subject of (subjects || [])) {
+    for (const topic of (subject.topics || [])) {
+      for (const item of (topic.checklistItems || [])) {
+        total++
+        const w = STATUS_WEIGHT[item.status] ?? 0
+        weighted += w
+        if (item.status !== 'not_started') done++
+        if (item.status === 'secure') secure++
+        if (item.status === 'needs_review') needsReview++
+      }
+    }
   }
   return {
     total,
     done,
     secure,
     needsReview,
-    pct: total > 0 ? Math.round((done / total) * 100) : 0,
+    pct: total > 0 ? Math.round((weighted / total) * 100) : 0,
   }
 }
 

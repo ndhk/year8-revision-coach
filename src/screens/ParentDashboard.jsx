@@ -6,6 +6,7 @@ import {
   getAllChecklistItems,
   getSessionsThisWeek,
   getSubjectsNotTouchedRecently,
+  getSuggestedItems,
 } from '../utils/planner.js'
 import ProgressBar from '../components/ProgressBar.jsx'
 import { daysUntilAssessment, daysSince } from '../utils/dates.js'
@@ -22,53 +23,48 @@ function pickTemplate(index) {
   return QUESTION_TEMPLATES[index % QUESTION_TEMPLATES.length]
 }
 
-function buildPraisePrompts(sessions, subjects, profile) {
-  const prompts = []
+function buildPraise(sessions, subjects, profile) {
   const thisWeek = getSessionsThisWeek(sessions)
-
-  if (thisWeek.length > 0) {
-    prompts.push(
-      `${profile.name} completed ${thisWeek.length} revision session${thisWeek.length !== 1 ? 's' : ''} this week.`
-    )
-  }
-
-  const startedSubjectIds = new Set(sessions.map((s) => s.subjectId))
-  if (startedSubjectIds.size > 0) {
-    prompts.push(
-      `Revision has started in ${startedSubjectIds.size} out of ${subjects.length} subjects.`
-    )
-  }
-
   const allItems = getAllChecklistItems(subjects)
   const secureCount = allItems.filter((i) => i.status === 'secure').length
-  if (secureCount > 0) {
-    prompts.push(
-      `${secureCount} checklist item${secureCount !== 1 ? 's have' : ' has'} been marked as Secure.`
-    )
-  }
+  const highConfSessions = sessions.filter((s) => s.confidenceAfter >= 4)
 
-  // Detect any subject where confidence improved (has sessions with confidenceAfter >= 4)
-  const highConfidenceSessions = sessions.filter((s) => s.confidenceAfter >= 4)
-  if (highConfidenceSessions.length > 0) {
-    const subjectIds = [...new Set(highConfidenceSessions.map((s) => s.subjectId))]
-    const subjectNames = subjectIds
+  // Most specific praise in priority order
+  if (highConfSessions.length > 0) {
+    const subjectIds = [...new Set(highConfSessions.map((s) => s.subjectId))]
+    const names = subjectIds
       .map((id) => subjects.find((s) => s.id === id)?.name)
       .filter(Boolean)
       .slice(0, 2)
-    if (subjectNames.length > 0) {
-      prompts.push(
-        `Strong confidence shown in ${subjectNames.join(' and ')}.`
-      )
+    if (names.length > 0) {
+      return `${profile.name} has shown strong confidence in ${names.join(' and ')} — great progress.`
     }
   }
-
-  if (prompts.length === 0) {
-    prompts.push(
-      'No revision sessions completed yet. Encourage them to start with one 15-minute session today.'
-    )
+  if (secureCount > 0) {
+    return `${secureCount} item${secureCount !== 1 ? 's have' : ' has'} been locked as Secure — ${profile.name} is building solid knowledge.`
   }
+  if (thisWeek.length > 0) {
+    return `${thisWeek.length} revision session${thisWeek.length !== 1 ? 's' : ''} completed this week — a solid start.`
+  }
+  if (sessions.length > 0) {
+    return `${sessions.length} revision session${sessions.length !== 1 ? 's' : ''} completed so far — keep the momentum going.`
+  }
+  return `No sessions yet. Encourage ${profile.name} to start with one 15-minute session today.`
+}
 
-  return prompts
+function buildNextAction(suggested, subjects, profile) {
+  if (suggested.length === 0) {
+    return `All items have been attempted. Encourage ${profile.name} to push more items to Secure status.`
+  }
+  const top = suggested[0]
+  const sub = subjects.find((s) => s.id === top.subjectId)
+  if (top.status === 'needs_review') {
+    return `Ask ${profile.name} to revisit "${top.title}" in ${sub?.name} — it was flagged as needing review.`
+  }
+  if (top.status === 'not_started') {
+    return `Suggest ${profile.name} starts "${top.title}" in ${sub?.name} — it hasn't been touched yet.`
+  }
+  return `Encourage ${profile.name} to review "${top.title}" in ${sub?.name} (${top.topicTitle}).`
 }
 
 function getTopAttentionItems(subjects, limit = 5) {
@@ -99,11 +95,12 @@ export default function ParentDashboard() {
   const overall = getOverallProgress(subjects)
   const thisWeek = getSessionsThisWeek(sessions)
   const notTouched = getSubjectsNotTouchedRecently(subjects, sessions, 7)
-  const praise = buildPraisePrompts(sessions, subjects, profile)
+  const suggested = getSuggestedItems(subjects, 3)
+  const praise = buildPraise(sessions, subjects, profile)
+  const nextAction = buildNextAction(suggested, subjects, profile)
   const topAttention = getTopAttentionItems(subjects, 5)
   const coveredSubjectIds = new Set(sessions.map((s) => s.subjectId))
 
-  // Build parent questions from actual checklist items with low confidence or not started
   const allItems = getAllChecklistItems(subjects)
   const questionCandidates = allItems
     .filter((i) => i.status !== 'secure')
@@ -112,7 +109,7 @@ export default function ParentDashboard() {
       const scoreB = (b.status === 'not_started' ? 3 : 0) + (b.confidence !== null && b.confidence <= 2 ? 2 : 0)
       return scoreB - scoreA
     })
-    .slice(0, 10)
+    .slice(0, 5)
 
   const subjectsSorted = [...subjects].sort((a, b) => {
     const pa = getSubjectProgress(a)
@@ -131,14 +128,14 @@ export default function ParentDashboard() {
         </p>
       </div>
 
-      {/* Praise */}
+      {/* Praise + next action */}
       <section className="card card--praise">
         <h3 className="card__title">Effort summary</h3>
-        <ul className="praise-list">
-          {praise.map((p, i) => (
-            <li key={i} className="praise-item">{p}</li>
-          ))}
-        </ul>
+        <p className="praise-single">{praise}</p>
+        <div className="parent-next-action">
+          <span className="parent-next-action__label">Suggested next:</span>
+          <span className="parent-next-action__text">{nextAction}</span>
+        </div>
       </section>
 
       {/* At a glance */}
@@ -190,7 +187,7 @@ export default function ParentDashboard() {
       </section>
 
       {/* Top 5 items needing attention */}
-      {topAttention.length > 0 && (
+      {topAttention.length > 0 ? (
         <section className="card">
           <h3 className="card__title">Top 5 items needing attention</h3>
           <div className="parent-item-list">
@@ -219,6 +216,10 @@ export default function ParentDashboard() {
             })}
           </div>
         </section>
+      ) : (
+        <section className="card card--empty">
+          <p>All items have been attempted — no urgent gaps found.</p>
+        </section>
       )}
 
       {/* Subjects not touched recently */}
@@ -240,7 +241,7 @@ export default function ParentDashboard() {
       <section className="card">
         <h3 className="card__title">Questions to ask</h3>
         <p className="muted-text mb-2">
-          Pick one of these to check understanding without looking at notes.
+          Pick one to test understanding without notes.
         </p>
         {questionCandidates.length === 0 ? (
           <p className="muted-text">All items are secure — ask anything!</p>
@@ -261,7 +262,6 @@ export default function ParentDashboard() {
           </ol>
         )}
       </section>
-
     </div>
   )
 }

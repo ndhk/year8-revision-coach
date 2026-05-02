@@ -94,6 +94,7 @@ export default function Progress() {
                   key={subject.id}
                   className="subject-progress-item"
                   onClick={() => navigate(`/subjects/${subject.id}`)}
+                  aria-label={`${subject.name} — ${p.pct}% coverage`}
                 >
                   <div className="subject-progress-item__header">
                     <span>{subject.emoji} {subject.name}</span>
@@ -112,9 +113,11 @@ export default function Progress() {
       )}
 
       {/* Weakest subjects */}
-      {weakest.length > 0 && (
-        <section className="card">
-          <h3 className="card__title">Needs most work</h3>
+      <section className="card">
+        <h3 className="card__title">Needs most work</h3>
+        {weakest.length === 0 ? (
+          <p className="muted-text">All subjects look good — keep it up!</p>
+        ) : (
           <div className="subject-progress-list">
             {weakest.map((subject) => {
               const p = subject._progress
@@ -124,6 +127,7 @@ export default function Progress() {
                   key={subject.id}
                   className="subject-progress-item"
                   onClick={() => navigate(`/subjects/${subject.id}`)}
+                  aria-label={`${subject.name} — ${p.pct}% coverage`}
                 >
                   <div className="subject-progress-item__header">
                     <span>{subject.emoji} {subject.name}</span>
@@ -139,8 +143,8 @@ export default function Progress() {
               )
             })}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {/* Per-subject breakdown */}
       <section className="card">
@@ -154,6 +158,7 @@ export default function Progress() {
                 key={subject.id}
                 className="subject-progress-item"
                 onClick={() => navigate(`/subjects/${subject.id}`)}
+                aria-label={`${subject.name} — ${p.pct}% coverage`}
               >
                 <div className="subject-progress-item__header">
                   <span>{subject.emoji} {subject.name}</span>

@@ -46,6 +46,7 @@
 html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -55,6 +56,7 @@ body {
   line-height: 1.5;
   min-height: 100dvh;
   overscroll-behavior: none;
+  overflow-x: hidden;
 }
 
 button { cursor: pointer; font: inherit; border: none; background: none; }
@@ -921,7 +923,8 @@ ul { list-style: none; }
 
 .progress-legend {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   font-size: 0.78rem;
   color: var(--color-text-secondary);
   margin-top: 8px;
@@ -1431,9 +1434,112 @@ ul { list-style: none; }
    Mobile tap target safety
    ============================================================ */
 @media (max-width: 400px) {
-  .status-select { min-width: 88px; font-size: 0.68rem; }
-  .btn-start-session { width: 32px; height: 32px; }
+  .status-select { min-width: 80px; max-width: 100px; font-size: 0.68rem; }
+  .btn-start-session { width: 32px; height: 32px; font-size: 0.75rem; }
   .checklist-item__main { padding: 10px 8px; gap: 6px; }
+  .checklist-item__controls { gap: 4px; }
   .bottom-nav__item { font-size: 0.62rem; }
   .btn { padding: 9px 14px; }
+  .stat-box__value { font-size: 1.3rem; }
+  .dashboard-hero { padding: 16px; }
+  .dashboard-hero__greeting { font-size: 1rem; }
+  .session-complete { padding: 24px 12px; }
 }
+
+/* ============================================================
+   Focus styles
+   ============================================================ */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Remove default outline for mouse users while keeping keyboard focus ring */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Specific overrides for styled elements */
+.btn:focus-visible,
+.btn-icon:focus-visible,
+.btn-start-session:focus-visible,
+.suggested-item__start:focus-visible,
+.confidence-rater__btn:focus-visible,
+.topic-block__header:focus-visible,
+.subject-card:focus-visible,
+.subject-progress-item:focus-visible,
+.checklist-item__chevron-btn:focus-visible,
+.bottom-nav__item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.status-select:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-primary-light), 0 0 0 4px var(--color-primary);
+  outline: none;
+}
+
+/* ============================================================
+   Parent Dashboard — praise + next action
+   ============================================================ */
+.praise-single {
+  font-size: 0.925rem;
+  color: #166534;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.parent-next-action {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.6);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(22, 101, 52, 0.2);
+}
+
+.parent-next-action__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #166534;
+}
+
+.parent-next-action__text {
+  font-size: 0.875rem;
+  color: #14532d;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   Mobile layout — 390px and 430px
+   ============================================================ */
+@media (max-width: 430px) {
+  /* Keep checklist row controls from overflowing on 390px iPhones */
+  .checklist-item__title { font-size: 0.825rem; }
+  .checklist-item__meta-inline { font-size: 0.68rem; }
+
+  /* Prevent suggested-item text from overflowing */
+  .suggested-item__title { font-size: 0.82rem; }
+  .suggested-item__subject { font-size: 0.68rem; }
+  .suggested-item__topic { font-size: 0.68rem; }
+
+  /* Parent items: wrap tag below title on small screens */
+  .parent-item { flex-wrap: wrap; gap: 6px; }
+  .parent-item__body { min-width: 0; flex-basis: calc(100% - 28px - 16px); }
+
+  /* Subject progress items in parent view */
+  .subject-progress-item__header { flex-wrap: wrap; gap: 4px; }
+  .subject-progress-item__tags { flex-wrap: wrap; }
+
+  /* Session complete actions stack properly */
+  .session-complete__actions { gap: 6px; }
+
+  /* Ensure method grid doesn't create tiny buttons */
+  .method-btn { font-size: 0.78rem; padding: 8px 8px; }
+}
+
+/* Ensure the app shell never causes horizontal scroll at any size */
+.app-shell, .screen { max-width: 100vw; }

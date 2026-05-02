@@ -13,7 +13,8 @@ export default function ConfidenceRater({ value, onChange, size = 'md' }) {
           className={`confidence-rater__btn${value === n ? ' confidence-rater__btn--active' : ''}`}
           style={value === n ? { background: COLORS[n], borderColor: COLORS[n], color: '#fff' } : {}}
           onClick={() => onChange(n)}
-          title={LABELS[n]}
+          aria-label={`Confidence ${n} — ${LABELS[n]}`}
+          aria-pressed={value === n}
         >
           {n}
         </button>
