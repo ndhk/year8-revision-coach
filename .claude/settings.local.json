@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(node -e \"const { YEAR8_REVISION_SEED } = require\\('./src/data/year8RevisionSeed.js'\\); const s = YEAR8_REVISION_SEED.find\\(s=>s.id==='maths'\\); console.log\\(JSON.stringify\\({id:s.id,topics:s.topics.map\\(t=>\\({id:t.id,title:t.title,items:t.checklistItems.map\\(i=>\\({id:i.id,title:i.title}\\)\\)}\\)\\)},null,2\\)\\)\")",
+      "Bash(node -e \"const { YEAR8_REVISION_SEED } = require\\('./src/data/year8RevisionSeed.js'\\); const s = YEAR8_REVISION_SEED.find\\(s=>s.id==='science'\\); console.log\\(JSON.stringify\\({id:s.id,topics:s.topics.map\\(t=>\\({id:t.id,title:t.title,items:t.checklistItems.map\\(i=>\\({id:i.id,title:i.title}\\)\\)}\\)\\)},null,2\\)\\)\")"
     ]
   }
 }
