@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext.jsx'
 import ChecklistItemRow from '../components/ChecklistItemRow.jsx'
 import ProgressBar from '../components/ProgressBar.jsx'
 import { getSubjectProgress } from '../utils/planner.js'
+import { hasActivities } from '../data/activities.js'
 
 export default function SubjectDetail() {
   const { subjectId } = useParams()
@@ -46,6 +47,14 @@ export default function SubjectDetail() {
       >
         ▶ Start a revision session
       </button>
+      {hasActivities(subject.id) && (
+        <button
+          className="btn btn--secondary btn--full mb-3"
+          onClick={() => navigate(`/activity/${subject.id}`)}
+        >
+          🎯 Try activities
+        </button>
+      )}
 
       {/* Topics */}
       {subject.topics.map((topic) => {

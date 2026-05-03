@@ -135,12 +135,20 @@ export default function Dashboard() {
             })}
           </div>
         )}
-        <button
-          className="btn btn--ghost btn--full mt-2"
-          onClick={() => navigate('/session')}
-        >
-          Start a custom session →
-        </button>
+        <div className="dashboard-actions-row">
+          <button
+            className="btn btn--ghost btn--full"
+            onClick={() => navigate('/session')}
+          >
+            Start a custom session →
+          </button>
+          <button
+            className="btn btn--secondary btn--full"
+            onClick={() => navigate('/activity')}
+          >
+            🎯 Try activities
+          </button>
+        </div>
       </section>
 
       {/* Badges */}
@@ -186,6 +194,7 @@ export default function Dashboard() {
                     <div className="session-item__meta">
                       {METHOD_LABELS[s.method] || s.method}
                       {mins !== null && ` · ${mins} min`}
+                      {s.score != null && ` · ${s.score}/${s.totalQuestions}`}
                       {s.confidenceAfter && ` · Confidence: ${s.confidenceAfter}/5`}
                     </div>
                   </div>
