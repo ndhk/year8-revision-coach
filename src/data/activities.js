@@ -1412,6 +1412,236 @@ export const ACTIVITIES = [
     correct: 2,
     explanation: 'Fertilisation — when a sperm joins with an egg — typically occurs in the fallopian tube.',
   },
+
+  // ─── Additional content ───────────────────────────────────────────────────────
+
+  // MATHS — extra flashcards and explain aloud
+
+  // Fractions of amount — flashcard (mat_t4_c2)
+  {
+    id: 'mat_frac_fc1',
+    type: 'flashcard',
+    subjectId: 'maths',
+    topicId: 'mat_t4',
+    topicTitle: 'Number 2',
+    checklistItemId: 'mat_t4_c2',
+    front: 'How do you find a fraction of an amount?\n(e.g. 3/4 of 60)',
+    back: 'Step 1: Divide by the denominator (bottom).\n60 ÷ 4 = 15  (that\'s 1/4)\n\nStep 2: Multiply by the numerator (top).\n15 × 3 = 45  (that\'s 3/4)\n\nMemory aid: divide then multiply.',
+  },
+
+  // Percentage — flashcard (mat_t4_c5)
+  {
+    id: 'mat_pct_fc1',
+    type: 'flashcard',
+    subjectId: 'maths',
+    topicId: 'mat_t4',
+    topicTitle: 'Number 2',
+    checklistItemId: 'mat_t4_c5',
+    front: 'How do you increase an amount by a percentage?\n(e.g. Increase £80 by 25%)',
+    back: 'Step 1: Find 10% → £80 ÷ 10 = £8\nStep 2: Build up 25%: 20% = £16, 5% = £4 → 25% = £20\nStep 3: Add it on: £80 + £20 = £100\n\nFor a decrease: subtract instead of add.',
+  },
+
+  // Nth term — flashcard (mat_t2_c2)
+  {
+    id: 'mat_nth_fc1',
+    type: 'flashcard',
+    subjectId: 'maths',
+    topicId: 'mat_t2',
+    topicTitle: 'Algebra 2',
+    checklistItemId: 'mat_t2_c2',
+    front: 'How do you find the nth term of a linear sequence?\n(e.g. 5, 8, 11, 14, …)',
+    back: 'Step 1: Find the common difference (here: +3).\nStep 2: Multiply n by the difference → 3n.\nStep 3: n=1 gives 3, but first term is 5, so add 2.\n\nNth term = 3n + 2\nCheck: n=1: 5 ✓  n=2: 8 ✓',
+  },
+
+  // Expanding brackets — explain aloud (mat_t2_c4)
+  {
+    id: 'mat_expand_ea1',
+    type: 'explain_aloud',
+    subjectId: 'maths',
+    topicId: 'mat_t2',
+    topicTitle: 'Algebra 2',
+    checklistItemId: 'mat_t2_c4',
+    prompt: 'Explain how to expand a bracket, like 5(2x + 3). Talk through the steps as if teaching a classmate.',
+    sampleAnswer: 'To expand a bracket, multiply EVERY term inside by the number outside.\n\n5(2x + 3):\n5 × 2x = 10x\n5 × 3  = 15\n\nAnswer: 10x + 15\n\nKey rule: don\'t forget to multiply the second term — a common mistake is to only multiply the first.',
+  },
+
+  // Angle rules — practice question (mat_t3_c5)
+  {
+    id: 'mat_angle_pq2',
+    type: 'practice_question',
+    subjectId: 'maths',
+    topicId: 'mat_t3',
+    topicTitle: 'Shape 2',
+    checklistItemId: 'mat_t3_c5',
+    prompt: 'Angles around a point are: 90°, 115°, and x. Find x.',
+    hint: 'Angles around a point add up to 360°.',
+    sampleAnswer: '360° − 90° − 115° = 155°\n\nx = 155°',
+  },
+
+  // ENGLISH — comprehension practice (eng_t1_c6)
+
+  {
+    id: 'eng_comp_pq1',
+    type: 'practice_question',
+    subjectId: 'english',
+    topicId: 'eng_t1',
+    topicTitle: 'Poetry Comprehension',
+    checklistItemId: 'eng_t1_c6',
+    prompt: 'Read this poem extract and answer both questions:\n\n"The wind howled like a wolf,\nDancing through the empty trees,\nLeaves scattered — brown and silent —\nAs if the world held its breath."\n\n1. Identify one poetic device in line 1 and name it.\n2. What mood does the poem create? Give evidence from the extract.',
+    hint: 'Q1: look for a comparison using "like" or "as". Q2: think about words like "empty", "silent", "held its breath" — what feeling do they suggest?',
+    sampleAnswer: 'Q1: "The wind howled like a wolf" — SIMILE. It uses "like" to compare the wind\'s sound to a wolf.\n\nQ2: The poem creates a mood of isolation and tension.\nEvidence: "empty trees" suggests loneliness; "silent" reinforces stillness; "the world held its breath" (personification) creates suspense, as if something is about to happen.',
+  },
+  {
+    id: 'eng_comp_ea1',
+    type: 'explain_aloud',
+    subjectId: 'english',
+    topicId: 'eng_t1',
+    topicTitle: 'Poetry Comprehension',
+    checklistItemId: 'eng_t1_c6',
+    prompt: 'Without looking at your notes, explain the strategies you use when answering questions about an unfamiliar poem.',
+    sampleAnswer: '1. Read twice — once for meaning, once to spot techniques.\n2. Look for the literal meaning AND what is suggested (connotation / implied meaning).\n3. Identify the mood or tone.\n4. Spot poetic devices: simile, metaphor, alliteration, personification, onomatopoeia, pathetic fallacy.\n5. Use P-E-E: Point → Evidence (quote) → Explain effect.\n6. Check the mark allocation — it tells you how much to write.',
+  },
+  {
+    id: 'eng_dev_mc4',
+    type: 'multiple_choice',
+    subjectId: 'english',
+    topicId: 'eng_t1',
+    topicTitle: 'Poetry Comprehension',
+    checklistItemId: 'eng_t1_c3',
+    prompt: '"The thunder clapped its hands." Which device is used here?',
+    options: ['Simile', 'Onomatopoeia', 'Personification', 'Pathetic fallacy'],
+    correct: 2,
+    explanation: 'Thunder is given a human action (clapping hands) — this is personification.',
+  },
+  {
+    id: 'eng_dev_mc5',
+    type: 'multiple_choice',
+    subjectId: 'english',
+    topicId: 'eng_t1',
+    topicTitle: 'Poetry Comprehension',
+    checklistItemId: 'eng_t1_c3',
+    prompt: '"The bees buzzed busily." Which TWO devices are used? Choose the most specific answer.',
+    options: [
+      'Simile and personification',
+      'Alliteration and onomatopoeia',
+      'Metaphor and alliteration',
+      'Pathetic fallacy and simile',
+    ],
+    correct: 1,
+    explanation: '"Buzzed" sounds like the bee sound (onomatopoeia) and the b-sound repeats at the start of words (alliteration).',
+  },
+
+  // FRENCH — personal information practice + where you live (fre_t2, fre_t5_c2)
+
+  {
+    id: 'fre_perso_mc1',
+    type: 'multiple_choice',
+    subjectId: 'french',
+    topicId: 'fre_t2',
+    topicTitle: 'Personal Information',
+    checklistItemId: 'fre_t2_c2',
+    prompt: 'How do you say "I am 14 years old" in French?',
+    options: ['Je suis quatorze ans', "J'ai quatorze ans", "J'ai quatorze", 'Je suis âgé de quatorze'],
+    correct: 1,
+    explanation: "In French you 'have' years: J'ai = I have. Quatorze = 14. Ans = years.",
+  },
+  {
+    id: 'fre_perso_pq1',
+    type: 'practice_question',
+    subjectId: 'french',
+    topicId: 'fre_t2',
+    topicTitle: 'Personal Information',
+    checklistItemId: 'fre_t2_c1',
+    prompt: 'Write three sentences in French: give your name, your age, and where you live.',
+    hint: "Je m'appelle … / J'ai … ans. / J'habite à …",
+    sampleAnswer: "Je m'appelle Sophie. (My name is Sophie.)\nJ'ai treize ans. (I am 13 years old.)\nJ'habite à Dublin. (I live in Dublin.)",
+  },
+  {
+    id: 'fre_live_fc1',
+    type: 'flashcard',
+    subjectId: 'french',
+    topicId: 'fre_t5',
+    topicTitle: 'Likes and Dislikes',
+    checklistItemId: 'fre_t5_c2',
+    front: "J'habite dans une maison.",
+    back: 'I live in a house.',
+  },
+  {
+    id: 'fre_live_fc2',
+    type: 'flashcard',
+    subjectId: 'french',
+    topicId: 'fre_t5',
+    topicTitle: 'Likes and Dislikes',
+    checklistItemId: 'fre_t5_c2',
+    front: "J'habite dans un appartement.",
+    back: 'I live in a flat / apartment.',
+  },
+  {
+    id: 'fre_live_mc1',
+    type: 'multiple_choice',
+    subjectId: 'french',
+    topicId: 'fre_t5',
+    topicTitle: 'Likes and Dislikes',
+    checklistItemId: 'fre_t5_c2',
+    prompt: 'How do you say "I live in a village" in French?',
+    options: ["J'habite dans une ville", "J'habite dans un village", "J'habite dans une maison", "J'habite à la campagne"],
+    correct: 1,
+    explanation: "Un village = a village. Une ville = a town/city. Une maison = a house.",
+  },
+  {
+    id: 'fre_fam_pq1',
+    type: 'practice_question',
+    subjectId: 'french',
+    topicId: 'fre_t3',
+    topicTitle: 'Family',
+    checklistItemId: 'fre_t3_c3',
+    prompt: 'Fill in the gaps with mon, ma, or mes:\n1. ___ frère  2. ___ sœur  3. ___ parents  4. ___ grand-mère  5. ___ cousin',
+    hint: 'mon = masculine singular, ma = feminine singular, mes = plural. Grand-mère is feminine. Cousin is masculine.',
+    sampleAnswer: '1. mon frère (frère = masculine)\n2. ma sœur (sœur = feminine)\n3. mes parents (plural)\n4. ma grand-mère (grand-mère = feminine)\n5. mon cousin (cousin = masculine)',
+  },
+
+  // SCIENCE — explain aloud and practice question
+
+  {
+    id: 'sci_part_ea1',
+    type: 'explain_aloud',
+    subjectId: 'science',
+    topicId: 'sci_t1',
+    topicTitle: 'Introduction to Chemistry',
+    checklistItemId: 'sci_t1_c1',
+    prompt: 'Without notes, describe the particle arrangement and movement in solids, liquids and gases. Compare all three.',
+    sampleAnswer: 'SOLID: particles closely packed in a regular arrangement; can only vibrate in fixed positions; fixed shape and volume.\n\nLIQUID: particles close together but not in a fixed arrangement; can move past each other (flow); fixed volume but no fixed shape.\n\nGAS: particles far apart with lots of space between them; move randomly and quickly in all directions; no fixed shape or volume — fill any container.',
+  },
+  {
+    id: 'sci_repro_pq1',
+    type: 'practice_question',
+    subjectId: 'science',
+    topicId: 'sci_t4',
+    topicTitle: 'Human Reproduction',
+    checklistItemId: 'sci_t4_c1',
+    prompt: 'State where egg cells are produced and where fertilisation usually takes place.',
+    sampleAnswer: 'Egg cells are produced in the OVARIES.\n\nFertilisation (sperm joining an egg) usually takes place in the FALLOPIAN TUBE.\n\nThe fertilised egg then travels to the UTERUS (womb), where it implants and develops.',
+  },
+  {
+    id: 'sci_gas_pq1',
+    type: 'practice_question',
+    subjectId: 'science',
+    topicId: 'sci_t1',
+    topicTitle: 'Introduction to Chemistry',
+    checklistItemId: 'sci_t1_c4',
+    prompt: 'Describe the test for oxygen gas. What is the positive result?',
+    sampleAnswer: 'Test: hold a glowing splint near the gas.\n\nPositive result: the glowing splint relights.\n\nReason: oxygen supports combustion — it provides the fuel for the splint to burn again.',
+  },
+  {
+    id: 'sci_react_fc1',
+    type: 'flashcard',
+    subjectId: 'science',
+    topicId: 'sci_t3',
+    topicTitle: 'Chemical Equations and Reactions',
+    checklistItemId: 'sci_t3_c2',
+    front: 'In a word equation, what are REACTANTS and PRODUCTS?',
+    back: 'REACTANTS → left side of the arrow (what goes IN)\nPRODUCTS → right side of the arrow (what comes OUT)\n\nExample: methane + oxygen → carbon dioxide + water\nReactants: methane, oxygen\nProducts: carbon dioxide, water',
+  },
 ]
 
 // ─── Helper functions ────────────────────────────────────────────────────────

@@ -1765,3 +1765,32 @@ ul { list-style: none; }
   border-color: var(--color-danger);
 }
 .btn--danger:hover { background: #dc2626; border-color: #dc2626; }
+
+.act-score-summary__feedback {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin: 6px 0 4px;
+  line-height: 1.4;
+}
+
+/* ============================================================
+   Activity screen — mobile
+   ============================================================ */
+@media (max-width: 430px) {
+  .act-question { padding: 14px 12px; }
+  .act-question__prompt { font-size: 1rem; margin-bottom: 12px; }
+  .act-option { padding: 10px 10px; font-size: 0.875rem; gap: 8px; }
+  .act-option__letter { width: 22px; height: 22px; font-size: 0.7rem; }
+  .flashcard-block { padding: 18px 14px; min-height: 100px; }
+  .flashcard-block__text { font-size: 1rem; }
+  .act-self-assess__btns { gap: 6px; }
+  .act-self-assess__btns .btn { padding: 9px 12px; font-size: 0.875rem; flex: 1; min-width: 0; }
+  .act-score-summary { padding: 18px 12px; }
+  .act-type-badge { font-size: 0.68rem; padding: 2px 8px; }
+  .act-sample__text { font-size: 0.85rem; }
+}
+
+@media (max-width: 400px) {
+  .act-header__subject { font-size: 0.82rem; }
+  .act-self-assess__btns .btn { font-size: 0.8rem; padding: 8px 8px; }
+}

@@ -52,7 +52,18 @@ function buildPraise(sessions, subjects, profile) {
   return `No sessions yet. Encourage ${profile.name} to start with one 15-minute session today.`
 }
 
-function buildNextAction(suggested, subjects, profile) {
+function buildNextAction(suggested, subjects, sessions, profile) {
+  // Low quiz score → highest priority recommendation
+  const recentLowScore = [...sessions]
+    .filter((s) => s.activityType === 'activity' && s.score != null && s.totalQuestions > 0)
+    .sort((a, b) => new Date(b.startedAt || 0) - new Date(a.startedAt || 0))
+    .slice(0, 3)
+    .find((s) => s.score / s.totalQuestions < 0.5)
+  if (recentLowScore) {
+    const sub = subjects.find((s) => s.id === recentLowScore.subjectId)
+    const pct = Math.round((recentLowScore.score / recentLowScore.totalQuestions) * 100)
+    return `${profile.name} scored ${pct}% on a recent ${sub?.name ?? recentLowScore.subjectId} activity — encourage them to revisit those topics before the assessment.`
+  }
   if (suggested.length === 0) {
     return `All items have been attempted. Encourage ${profile.name} to push more items to Secure status.`
   }
@@ -97,7 +108,7 @@ export default function ParentDashboard() {
   const notTouched = getSubjectsNotTouchedRecently(subjects, sessions, 7)
   const suggested = getSuggestedItems(subjects, 3)
   const praise = buildPraise(sessions, subjects, profile)
-  const nextAction = buildNextAction(suggested, subjects, profile)
+  const nextAction = buildNextAction(suggested, subjects, sessions, profile)
   const topAttention = getTopAttentionItems(subjects, 5)
   const coveredSubjectIds = new Set(sessions.map((s) => s.subjectId))
 

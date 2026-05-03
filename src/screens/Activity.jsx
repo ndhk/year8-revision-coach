@@ -28,6 +28,14 @@ const TYPE_LABELS = {
 
 const CONF_LABELS = ['', 'No idea', 'Unsure', 'Getting it', 'Almost there', 'Confident']
 
+function scoreFeedback(pct) {
+  if (pct === null) return null
+  if (pct >= 80) return 'Excellent — you clearly know this material well.'
+  if (pct >= 60) return 'Good effort! Keep practising the ones you missed.'
+  if (pct >= 40) return 'Keep going — review the tricky ones and try again.'
+  return 'This topic needs more work. Review your notes and try again.'
+}
+
 // ── MCCard ────────────────────────────────────────────────────────
 
 function MCCard({ activity, onAnswer }) {
@@ -191,6 +199,7 @@ export default function Activity() {
   const [confidence, setConfidence] = useState(null)
   const [suggestedConf, setSuggestedConf] = useState(null)
   const [confidenceError, setConfidenceError] = useState(false)
+  const [notes, setNotes] = useState('')
 
   const startedAtRef = useRef(null)
 
@@ -259,20 +268,41 @@ export default function Activity() {
     }
     const scored = results.filter((r) => r !== null)
     const correct = results.filter((r) => r === true).length
+    const checklistItemIds = [...new Set(queue.map((a) => a.checklistItemId))]
+    const topicIds = [...new Set(queue.map((a) => a.topicId))]
+    const topicId = topicIds.length === 1 ? topicIds[0] : null
+
     const session = {
       id: `session_${Date.now()}`,
       subjectId,
-      topicId: null,
-      checklistItemIds: [],
+      topicId,
+      checklistItemIds,
       startedAt: startedAtRef.current,
       method: 'quiz',
       activityType: 'activity',
       confidenceAfter: confidence,
+      notes: notes.trim() || null,
       score: scored.length > 0 ? correct : null,
       totalQuestions: scored.length > 0 ? scored.length : null,
     }
     completeSession(session)
     navigate('/dashboard')
+  }
+
+  // Fallback for invalid route param
+  if (paramSubjectId && !ACTIVITY_SUBJECT_IDS.includes(paramSubjectId)) {
+    return (
+      <div className="screen screen--centered">
+        <div className="placeholder-screen">
+          <div className="placeholder-screen__icon">🎯</div>
+          <h2>No activities here</h2>
+          <p>Activities are available for Maths, English, French and Science.</p>
+          <button className="btn btn--primary mt-2" onClick={() => navigate('/subjects')}>
+            Back to subjects
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // ── Review phase ──────────────────────────────────────────────
@@ -291,6 +321,9 @@ export default function Activity() {
             <p className="act-score-summary__score">
               Score: <strong>{correct}/{scored.length}</strong> ({pct}%)
             </p>
+          )}
+          {pct !== null && (
+            <p className="act-score-summary__feedback">{scoreFeedback(pct)}</p>
           )}
           <p className="act-score-summary__total">
             {queue.length} activit{queue.length !== 1 ? 'ies' : 'y'} completed
@@ -320,6 +353,18 @@ export default function Activity() {
           )}
         </div>
 
+        <div className="card">
+          <label className="form-label" htmlFor="act-notes">Notes (optional)</label>
+          <textarea
+            id="act-notes"
+            className="form-textarea"
+            rows={3}
+            placeholder="What did you find tricky? Any concepts to revisit?"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+
         <button className="btn btn--primary btn--full btn--lg" onClick={finishActivity}>
           Complete session ✓
         </button>
@@ -332,6 +377,7 @@ export default function Activity() {
             setAnswered(false)
             setConfidence(null)
             setSuggestedConf(null)
+            setNotes('')
           }}
         >
           Try again

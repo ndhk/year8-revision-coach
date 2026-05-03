@@ -9,6 +9,7 @@ import {
 } from '../utils/planner.js'
 import { levelFromPoints, getBadgeById } from '../utils/rewards.js'
 import ProgressBar from '../components/ProgressBar.jsx'
+import { formatDateTime } from '../utils/dates.js'
 import { useNavigate } from 'react-router-dom'
 
 export default function Progress() {
@@ -19,6 +20,10 @@ export default function Progress() {
   const thisWeek = getSessionsThisWeek(sessions)
   const strongest = getStrongestSubjects(subjects, 3)
   const weakest = getWeakestSubjects(subjects, 3)
+
+  const recentActivitySessions = [...sessions].reverse()
+    .filter((s) => s.activityType === 'activity')
+    .slice(0, 5)
 
   const totalMinutes = Math.round(
     sessions.reduce((acc, s) => {
@@ -80,6 +85,34 @@ export default function Progress() {
           </div>
         </div>
       </section>
+
+      {/* Recent activity results */}
+      {recentActivitySessions.length > 0 && (
+        <section className="card">
+          <h3 className="card__title">Recent activity results</h3>
+          <div className="session-list">
+            {recentActivitySessions.map((s) => {
+              const sub = subjects.find((x) => x.id === s.subjectId)
+              const hasScore = s.score != null && s.totalQuestions != null
+              return (
+                <div key={s.id} className="session-item">
+                  <span className="session-item__emoji">{sub?.emoji || '🎯'}</span>
+                  <div className="session-item__body">
+                    <div className="session-item__subject">{sub?.name || s.subjectId}</div>
+                    <div className="session-item__meta">
+                      {hasScore
+                        ? `${s.score}/${s.totalQuestions} correct (${Math.round((s.score / s.totalQuestions) * 100)}%)`
+                        : 'Reflection activity'}
+                      {s.confidenceAfter && ` · Confidence: ${s.confidenceAfter}/5`}
+                    </div>
+                  </div>
+                  <div className="session-item__time">{formatDateTime(s.endedAt)}</div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Strongest subjects */}
       {strongest.length > 0 && (
