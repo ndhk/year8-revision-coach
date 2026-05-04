@@ -5,6 +5,7 @@ export const KEYS = {
   REWARDS: 'yr8_rewards',
   SETTINGS: 'yr8_settings',
   ACTIVE_SESSION: 'yr8_active_session',
+  TOPIC_QUIZ_PROMPTS: 'yr8_topic_quiz_prompts',
 }
 
 export function load(key, fallback = null) {

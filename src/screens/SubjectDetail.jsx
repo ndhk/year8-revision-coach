@@ -8,7 +8,7 @@ import { hasActivities } from '../data/activities.js'
 
 export default function SubjectDetail() {
   const { subjectId } = useParams()
-  const { subjects } = useApp()
+  const { subjects, topicQuizPrompts, dismissTopicQuizPrompt } = useApp()
   const navigate = useNavigate()
   const [openTopics, setOpenTopics] = useState({})
 
@@ -58,9 +58,11 @@ export default function SubjectDetail() {
 
       {/* Topics */}
       {subject.topics.map((topic) => {
-        const isOpen = openTopics[topic.id] !== false // default open
+        const isOpen = openTopics[topic.id] !== false
         const topicDone = topic.checklistItems.filter((c) => c.status !== 'not_started').length
         const topicTotal = topic.checklistItems.length
+        const prompt = topicQuizPrompts?.[topic.id]
+        const showQuizPrompt = prompt?.promptedAt && !prompt.dismissedAt && !prompt.quizCompletedAt
 
         return (
           <div key={topic.id} className="topic-block">
@@ -79,6 +81,28 @@ export default function SubjectDetail() {
               />
               <span className="topic-block__chevron">{isOpen !== false ? '▲' : '▼'}</span>
             </button>
+
+            {showQuizPrompt && (
+              <div className="topic-quiz-prompt">
+                <span className="topic-quiz-prompt__text">
+                  🎉 All items touched — ready for a quiz?
+                </span>
+                <div className="topic-quiz-prompt__actions">
+                  <button
+                    className="btn btn--primary btn--sm"
+                    onClick={() => navigate(`/activity/${subject.id}`, { state: { topicId: topic.id } })}
+                  >
+                    Start quiz
+                  </button>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => dismissTopicQuizPrompt(topic.id)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
 
             {isOpen !== false && (
               <div className="topic-block__items">

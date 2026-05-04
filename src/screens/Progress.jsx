@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
 import {
   getSubjectProgress,
@@ -6,20 +7,29 @@ import {
   getSessionsThisWeek,
   getStrongestSubjects,
   getWeakestSubjects,
+  getHardItems,
+  getTopicQuizReadyList,
 } from '../utils/planner.js'
 import { levelFromPoints, getBadgeById } from '../utils/rewards.js'
 import ProgressBar from '../components/ProgressBar.jsx'
 import { formatDateTime } from '../utils/dates.js'
-import { useNavigate } from 'react-router-dom'
+
+const REASON_STYLE = {
+  'Needs review': 'tag--danger',
+  'Low confidence': 'tag--warn',
+  'Low quiz score': 'tag--danger',
+}
 
 export default function Progress() {
-  const { subjects, sessions, rewards } = useApp()
+  const { subjects, sessions, rewards, topicQuizPrompts, dismissTopicQuizPrompt } = useApp()
   const navigate = useNavigate()
   const overall = getOverallProgress(subjects)
   const { level, title: levelTitle } = levelFromPoints(rewards.points)
   const thisWeek = getSessionsThisWeek(sessions)
   const strongest = getStrongestSubjects(subjects, 3)
   const weakest = getWeakestSubjects(subjects, 3)
+  const hardItems = getHardItems(subjects, sessions, 5)
+  const quizReady = getTopicQuizReadyList(subjects, topicQuizPrompts)
 
   const recentActivitySessions = [...sessions].reverse()
     .filter((s) => s.activityType === 'activity')
@@ -85,6 +95,63 @@ export default function Progress() {
           </div>
         </div>
       </section>
+
+      {/* Quiz-ready topics */}
+      {quizReady.length > 0 && (
+        <section className="card quiz-prompt-card">
+          <h3 className="card__title">🎉 Topics ready for a quiz</h3>
+          <div className="quiz-prompt-list">
+            {quizReady.map(({ topic, subject }) => (
+              <div key={topic.id} className="quiz-prompt-item">
+                <div className="quiz-prompt-item__info">
+                  <span className="quiz-prompt-item__emoji">{subject.emoji}</span>
+                  <div>
+                    <div className="quiz-prompt-item__subject">{subject.name}</div>
+                    <div className="quiz-prompt-item__topic">{topic.title}</div>
+                  </div>
+                </div>
+                <div className="quiz-prompt-item__actions">
+                  <button
+                    className="btn btn--primary btn--sm"
+                    onClick={() => navigate(`/activity/${subject.id}`, { state: { topicId: topic.id } })}
+                  >
+                    Quiz
+                  </button>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => dismissTopicQuizPrompt(topic.id)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Hard items */}
+      {hardItems.length > 0 && (
+        <section className="card">
+          <h3 className="card__title">Items needing attention</h3>
+          <div className="session-list">
+            {hardItems.map((item) => {
+              const sub = subjects.find((s) => s.id === item.subjectId)
+              const tagCls = REASON_STYLE[item.reason] || 'tag--muted'
+              return (
+                <div key={item.id} className="session-item">
+                  <span className="session-item__emoji">{sub?.emoji || '📚'}</span>
+                  <div className="session-item__body">
+                    <div className="session-item__subject">{sub?.name}</div>
+                    <div className="session-item__meta">{item.topicTitle} — {item.title}</div>
+                  </div>
+                  <span className={`tag ${tagCls}`}>{item.reason}</span>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Recent activity results */}
       {recentActivitySessions.length > 0 && (

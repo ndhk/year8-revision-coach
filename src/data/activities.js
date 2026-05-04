@@ -1650,6 +1650,17 @@ export function getActivitiesForSubject(subjectId) {
   return ACTIVITIES.filter((a) => a.subjectId === subjectId)
 }
 
+export function getActivitiesForTopic(subjectId, topicId) {
+  return ACTIVITIES.filter((a) => a.subjectId === subjectId && a.topicId === topicId)
+}
+
+export function getTopicsWithActivities(subjectId) {
+  const ids = new Set(
+    ACTIVITIES.filter((a) => a.subjectId === subjectId).map((a) => a.topicId)
+  )
+  return [...ids]
+}
+
 export function getActivitiesForItem(checklistItemId) {
   return ACTIVITIES.filter((a) => a.checklistItemId === checklistItemId)
 }

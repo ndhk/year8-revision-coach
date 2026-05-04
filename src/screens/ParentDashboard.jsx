@@ -7,9 +7,10 @@ import {
   getSessionsThisWeek,
   getSubjectsNotTouchedRecently,
   getSuggestedItems,
+  getHardItems,
 } from '../utils/planner.js'
 import ProgressBar from '../components/ProgressBar.jsx'
-import { daysUntilAssessment, daysSince } from '../utils/dates.js'
+import { daysUntilAssessment } from '../utils/dates.js'
 
 const QUESTION_TEMPLATES = [
   (title) => `Can you explain "${title}" in your own words?`,
@@ -78,38 +79,16 @@ function buildNextAction(suggested, subjects, sessions, profile) {
   return `Encourage ${profile.name} to review "${top.title}" in ${sub?.name} (${top.topicTitle}).`
 }
 
-function getTopAttentionItems(subjects, limit = 5) {
-  const all = getAllChecklistItems(subjects)
-  return all
-    .filter((i) => i.status !== 'secure')
-    .sort((a, b) => {
-      let scoreA = 0
-      let scoreB = 0
-      if (a.status === 'not_started') scoreA += 10
-      if (b.status === 'not_started') scoreB += 10
-      if (a.status === 'needs_review') scoreA += 8
-      if (b.status === 'needs_review') scoreB += 8
-      if (a.confidence !== null && a.confidence <= 2) scoreA += 6
-      if (b.confidence !== null && b.confidence <= 2) scoreB += 6
-      const dA = daysSince(a.lastRevisedAt)
-      const dB = daysSince(b.lastRevisedAt)
-      if (dA === null || dA >= 7) scoreA += 4
-      if (dB === null || dB >= 7) scoreB += 4
-      return scoreB - scoreA
-    })
-    .slice(0, limit)
-}
-
 export default function ParentDashboard() {
   const { subjects, sessions, profile } = useApp()
   const daysLeft = daysUntilAssessment()
   const overall = getOverallProgress(subjects)
   const thisWeek = getSessionsThisWeek(sessions)
   const notTouched = getSubjectsNotTouchedRecently(subjects, sessions, 7)
-  const suggested = getSuggestedItems(subjects, 3)
+  const suggested = getSuggestedItems(subjects, 3, sessions)
   const praise = buildPraise(sessions, subjects, profile)
   const nextAction = buildNextAction(suggested, subjects, sessions, profile)
-  const topAttention = getTopAttentionItems(subjects, 5)
+  const topAttention = getHardItems(subjects, sessions, 5)
   const coveredSubjectIds = new Set(sessions.map((s) => s.subjectId))
 
   const allItems = getAllChecklistItems(subjects)
@@ -200,18 +179,16 @@ export default function ParentDashboard() {
       {/* Top 5 items needing attention */}
       {topAttention.length > 0 ? (
         <section className="card">
-          <h3 className="card__title">Top 5 items needing attention</h3>
+          <h3 className="card__title">Top items needing attention</h3>
           <div className="parent-item-list">
             {topAttention.map((item, idx) => {
               const sub = subjects.find((s) => s.id === item.subjectId)
-              const reasonLabel =
-                item.status === 'not_started'
-                  ? 'Not started'
-                  : item.status === 'needs_review'
-                  ? 'Needs review'
-                  : item.confidence !== null && item.confidence <= 2
-                  ? `Confidence ${item.confidence}/5`
-                  : 'Not revised recently'
+              const tagCls =
+                item.reason === 'Needs review' || item.reason === 'Low quiz score'
+                  ? 'tag--danger'
+                  : item.reason === 'Low confidence'
+                  ? 'tag--warn'
+                  : 'tag--muted'
               return (
                 <div key={item.id} className="parent-item">
                   <span className="parent-item__num">{idx + 1}</span>
@@ -219,9 +196,7 @@ export default function ParentDashboard() {
                     <span className="parent-item__subject">{sub?.emoji} {sub?.name}</span>
                     <span className="parent-item__title">{item.title}</span>
                   </div>
-                  <span className={`tag ${item.status === 'not_started' ? 'tag--warn' : item.status === 'needs_review' ? 'tag--danger' : 'tag--muted'}`}>
-                    {reasonLabel}
-                  </span>
+                  <span className={`tag ${tagCls}`}>{item.reason}</span>
                 </div>
               )
             })}
@@ -229,7 +204,7 @@ export default function ParentDashboard() {
         </section>
       ) : (
         <section className="card card--empty">
-          <p>All items have been attempted — no urgent gaps found.</p>
+          <p>No items with low confidence or low quiz scores found — great progress!</p>
         </section>
       )}
 

@@ -29,40 +29,93 @@ export function getAllChecklistItems(subjects) {
   return items
 }
 
-export function getItemReason(item) {
-  if (item.status === 'not_started') return 'Not started'
-  if (item.status === 'needs_review') return 'Needs review'
+// Maps each checklistItemId to the most recent quiz score ratio (0–1).
+// Only considers sessions that have checklistItemIds and a score.
+export function buildRecentScoreMap(sessions) {
+  const sorted = [...sessions].sort(
+    (a, b) => new Date(b.startedAt || 0) - new Date(a.startedAt || 0)
+  )
+  const map = {}
+  for (const session of sorted) {
+    if (!session.checklistItemIds || session.score == null || !session.totalQuestions) continue
+    const ratio = session.score / session.totalQuestions
+    for (const id of session.checklistItemIds) {
+      if (!(id in map)) map[id] = ratio
+    }
+  }
+  return map
+}
+
+// Priority order: low confidence > needs_review > low quiz score > revised-not-secure > not-started > stale > core subject
+export function scoreItem(item, recentScoreMap = {}) {
+  let score = 0
+  if (item.confidence !== null && item.confidence <= 2) score += 120
+  if (item.status === 'needs_review') score += 100
+  const recentRatio = recentScoreMap[item.id]
+  if (recentRatio !== undefined && recentRatio < 0.5) score += 80
+  if (['practised', 'learned', 'tested'].includes(item.status)) score += 60
+  if (item.status === 'not_started') score += 50
+  if (isOverdue(item.lastRevisedAt, 7)) score += 35
+  if (PRIORITY_SUBJECTS.includes(item.subjectId)) score += 15
+  return score
+}
+
+export function getItemReason(item, recentScoreMap = {}) {
   if (item.confidence !== null && item.confidence <= 2) return 'Low confidence'
+  if (item.status === 'needs_review') return 'Needs review'
+  const recentRatio = recentScoreMap[item.id]
+  if (recentRatio !== undefined && recentRatio < 0.5) return 'Low quiz score'
+  if (item.status === 'not_started') return 'Not started'
   if (isOverdue(item.lastRevisedAt, 7)) return 'Not revised recently'
   if (PRIORITY_SUBJECTS.includes(item.subjectId)) return 'Core subject'
   return 'Low revision count'
 }
 
-export function scoreItem(item) {
-  let score = 0
-  if (item.status === 'not_started') score += 100
-  if (item.status === 'needs_review') score += 80
-  if (item.confidence !== null && item.confidence <= 2) score += 60
-  if (isOverdue(item.lastRevisedAt, 7)) score += 40
-  if (PRIORITY_SUBJECTS.includes(item.subjectId)) score += 20
-  if (item.revisionCount === 0) score += 15
-  if (item.revisionCount < 3) score += 5
-  return score
-}
-
-export function getSuggestedItems(subjects, limit = 3) {
+export function getSuggestedItems(subjects, limit = 3, sessions = []) {
+  const recentScoreMap = buildRecentScoreMap(sessions)
   const all = getAllChecklistItems(subjects)
   const unfinished = all.filter((i) => i.status !== 'secure')
   return unfinished
-    .map((item) => ({ ...item, _score: scoreItem(item), reason: getItemReason(item) }))
+    .map((item) => ({ ...item, _score: scoreItem(item, recentScoreMap), reason: getItemReason(item, recentScoreMap) }))
     .sort((a, b) => b._score - a._score)
     .slice(0, limit)
 }
 
+// Items that are hard: low confidence, low quiz score, or needs_review (excluding secure).
+export function getHardItems(subjects, sessions = [], limit = 5) {
+  const recentScoreMap = buildRecentScoreMap(sessions)
+  return getAllChecklistItems(subjects)
+    .filter((i) => {
+      if (i.status === 'secure') return false
+      if (i.confidence !== null && i.confidence <= 2) return true
+      const ratio = recentScoreMap[i.id]
+      if (ratio !== undefined && ratio < 0.5) return true
+      if (i.status === 'needs_review') return true
+      return false
+    })
+    .map((item) => ({ ...item, _score: scoreItem(item, recentScoreMap), reason: getItemReason(item, recentScoreMap) }))
+    .sort((a, b) => b._score - a._score)
+    .slice(0, limit)
+}
+
+// Topics where all items have been touched and a quiz hasn't been taken/dismissed yet.
+export function getTopicQuizReadyList(subjects, topicQuizPrompts = {}) {
+  const ready = []
+  for (const subject of subjects) {
+    for (const topic of subject.topics) {
+      const prompt = topicQuizPrompts[topic.id]
+      if (!prompt?.promptedAt) continue
+      if (prompt.dismissedAt || prompt.quizCompletedAt) continue
+      ready.push({ topic, subject })
+    }
+  }
+  return ready
+}
+
 export function getSubjectProgress(subject) {
   let total = 0
-  let done = 0        // items touched (not_started = 0, anything else = 1)
-  let weighted = 0    // weighted sum using STATUS_WEIGHT
+  let done = 0
+  let weighted = 0
   let secure = 0
   let notStarted = 0
   let lowConfidence = 0

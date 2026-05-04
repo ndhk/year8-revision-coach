@@ -2000,3 +2000,83 @@ ul { list-style: none; }
   .asb-emoji { font-size: 1rem; }
   .asb-actions { gap: 4px; }
 }
+
+/* ============================================================
+   Quiz Prompt Cards (Dashboard, Progress)
+   ============================================================ */
+.quiz-prompt-card {
+  border-left: 3px solid var(--color-success);
+}
+
+.quiz-prompt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.quiz-prompt-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quiz-prompt-item__info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.quiz-prompt-item__emoji {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.quiz-prompt-item__subject {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.quiz-prompt-item__topic {
+  font-size: 0.73rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quiz-prompt-item__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Topic Quiz Prompt (SubjectDetail inline banner)
+   ============================================================ */
+.topic-quiz-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--color-success-light);
+  border-left: 3px solid var(--color-success);
+  border-radius: var(--radius-sm);
+  margin: 0 0 2px;
+}
+
+.topic-quiz-prompt__text {
+  font-size: 0.82rem;
+  color: #065f46;
+  font-weight: 500;
+}
+
+.topic-quiz-prompt__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}

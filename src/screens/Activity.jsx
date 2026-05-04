@@ -6,6 +6,8 @@ import ConfidenceRater from '../components/ConfidenceRater.jsx'
 import {
   ACTIVITIES,
   getActivitiesForSubject,
+  getActivitiesForTopic,
+  getTopicsWithActivities,
   suggestConfidence,
   ACTIVITY_SUBJECT_IDS,
 } from '../data/activities.js'
@@ -211,6 +213,7 @@ export default function Activity() {
   const [subjectId, setSubjectId] = useState(
     () => (isActivitySession ? activeSession.subjectId : (paramSubjectId || ''))
   )
+  const [selectedTopicId, setSelectedTopicId] = useState(() => preState.topicId || '')
   const [count, setCount] = useState(10)
 
   // 'setup' | 'running' | 'review'
@@ -289,13 +292,15 @@ export default function Activity() {
 
   function startActivity() {
     if (!subjectId) return
-    const all = getActivitiesForSubject(subjectId)
+    const all = selectedTopicId
+      ? getActivitiesForTopic(subjectId, selectedTopicId)
+      : getActivitiesForSubject(subjectId)
     const shuffled = shuffle(all)
     const picked = count === 'all' ? shuffled : shuffled.slice(0, Math.min(count, shuffled.length))
     if (picked.length === 0) return
 
     const topicIds = [...new Set(picked.map((a) => a.topicId))]
-    const topicId = topicIds.length === 1 ? topicIds[0] : null
+    const topicId = selectedTopicId || (topicIds.length === 1 ? topicIds[0] : null)
     const checklistItemIds = [...new Set(picked.map((a) => a.checklistItemId))]
 
     startActiveSession({
@@ -654,7 +659,7 @@ export default function Activity() {
           id="act-subject-select"
           className="form-select"
           value={subjectId}
-          onChange={(e) => setSubjectId(e.target.value)}
+          onChange={(e) => { setSubjectId(e.target.value); setSelectedTopicId('') }}
         >
           <option value="">— choose a subject —</option>
           {activitySubjects.map((s) => (
@@ -664,6 +669,31 @@ export default function Activity() {
           ))}
         </select>
       </div>
+
+      {subjectId && (() => {
+        const activeSub = subjects.find((s) => s.id === subjectId)
+        const topicIdsWithActs = getTopicsWithActivities(subjectId)
+        const topicsForDropdown = (activeSub?.topics || []).filter((t) => topicIdsWithActs.includes(t.id))
+        if (topicsForDropdown.length === 0) return null
+        return (
+          <div className="card">
+            <label className="form-label" htmlFor="act-topic-select">
+              Topic (optional)
+            </label>
+            <select
+              id="act-topic-select"
+              className="form-select"
+              value={selectedTopicId}
+              onChange={(e) => setSelectedTopicId(e.target.value)}
+            >
+              <option value="">— all topics —</option>
+              {topicsForDropdown.map((t) => (
+                <option key={t.id} value={t.id}>{t.title}</option>
+              ))}
+            </select>
+          </div>
+        )
+      })()}
 
       <div className="card">
         <label className="form-label">Number of activities</label>

@@ -6,6 +6,7 @@ import {
   getOverallProgress,
   getSuggestedItems,
   getSessionsThisWeek,
+  getTopicQuizReadyList,
 } from '../utils/planner.js'
 import { levelFromPoints, getBadgeById } from '../utils/rewards.js'
 import ProgressBar from '../components/ProgressBar.jsx'
@@ -24,22 +25,24 @@ const REASON_STYLE = {
   'Not started': 'reason--grey',
   'Needs review': 'reason--red',
   'Low confidence': 'reason--orange',
+  'Low quiz score': 'reason--red',
   'Not revised recently': 'reason--blue',
   'Core subject': 'reason--purple',
   'Low revision count': 'reason--grey',
 }
 
 export default function Dashboard() {
-  const { profile, subjects, sessions, rewards } = useApp()
+  const { profile, subjects, sessions, rewards, topicQuizPrompts, dismissTopicQuizPrompt } = useApp()
   const navigate = useNavigate()
 
   const daysLeft = daysUntilAssessment()
   const assessmentWeek = isAssessmentWeek()
   const overall = getOverallProgress(subjects)
-  const suggested = getSuggestedItems(subjects, 3)
+  const suggested = getSuggestedItems(subjects, 3, sessions)
   const thisWeekSessions = getSessionsThisWeek(sessions)
   const { level, title: levelTitle } = levelFromPoints(rewards.points)
   const recentSessions = [...sessions].reverse().slice(0, 3)
+  const quizReady = getTopicQuizReadyList(subjects, topicQuizPrompts)
 
   const subjectsStarted = new Set(sessions.map((s) => s.subjectId)).size
   const subjectsNotStarted = subjects.length - subjectsStarted
@@ -92,6 +95,40 @@ export default function Dashboard() {
           )}
         </div>
       </section>
+
+      {/* Quiz prompts */}
+      {quizReady.length > 0 && (
+        <section className="card quiz-prompt-card">
+          <h3 className="card__title">🎉 Topics ready for a quiz</h3>
+          <div className="quiz-prompt-list">
+            {quizReady.map(({ topic, subject }) => (
+              <div key={topic.id} className="quiz-prompt-item">
+                <div className="quiz-prompt-item__info">
+                  <span className="quiz-prompt-item__emoji">{subject.emoji}</span>
+                  <div>
+                    <div className="quiz-prompt-item__subject">{subject.name}</div>
+                    <div className="quiz-prompt-item__topic">{topic.title}</div>
+                  </div>
+                </div>
+                <div className="quiz-prompt-item__actions">
+                  <button
+                    className="btn btn--primary btn--sm"
+                    onClick={() => navigate(`/activity/${subject.id}`, { state: { topicId: topic.id } })}
+                  >
+                    Quiz
+                  </button>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => dismissTopicQuizPrompt(topic.id)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Suggested revision */}
       <section className="card">

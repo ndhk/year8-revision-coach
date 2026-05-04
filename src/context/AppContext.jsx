@@ -16,8 +16,6 @@ function buildInitialSubjects() {
   }))
 }
 
-// Ensures loaded/imported subject data has the correct structure so a
-// corrupted or partially-migrated localStorage value cannot crash the app.
 function sanitizeSubjects(loaded) {
   if (!Array.isArray(loaded) || loaded.length === 0) return buildInitialSubjects()
   return loaded.map((sub) => ({
@@ -62,19 +60,39 @@ function sanitizeRewards(loaded) {
   }
 }
 
+function sanitizeTopicQuizPrompts(loaded) {
+  if (!loaded || typeof loaded !== 'object' || Array.isArray(loaded)) return {}
+  const result = {}
+  for (const [key, val] of Object.entries(loaded)) {
+    if (val && typeof val === 'object') {
+      result[key] = {
+        promptedAt: val.promptedAt || null,
+        dismissedAt: val.dismissedAt || null,
+        quizCompletedAt: val.quizCompletedAt || null,
+      }
+    }
+  }
+  return result
+}
+
 function getInitialState() {
   const profile = load(KEYS.PROFILE)
   const subjects = sanitizeSubjects(load(KEYS.SUBJECTS))
   const sessions = sanitizeSessions(load(KEYS.SESSIONS))
   const rewards = sanitizeRewards(load(KEYS.REWARDS))
   const settings = load(KEYS.SETTINGS) || { name: '', theme: 'light' }
-  return { profile, subjects, sessions, rewards, settings, newBadges: [] }
+  const topicQuizPrompts = sanitizeTopicQuizPrompts(load(KEYS.TOPIC_QUIZ_PROMPTS))
+  return { profile, subjects, sessions, rewards, settings, newBadges: [], topicQuizPrompts }
 }
 
-function confidenceToStatus(confidence, currentStatus) {
+// confidence 3 + score <50% → needs_review (otherwise practised)
+function confidenceToStatus(confidence, currentStatus, sessionScore, sessionTotal) {
   if (confidence == null) return currentStatus
   if (confidence >= 4) return 'secure'
   if (confidence <= 2) return 'needs_review'
+  if (sessionScore != null && sessionTotal != null && sessionTotal > 0) {
+    if (sessionScore / sessionTotal < 0.5) return 'needs_review'
+  }
   return 'practised'
 }
 
@@ -91,6 +109,37 @@ function applyItemUpdate(subjects, subjectId, itemMatcher, updater) {
       })),
     }
   })
+}
+
+// Returns topicIds that transitioned from "has at least one not_started" to "none not_started".
+function detectNewlyCompletedTopics(prevSubjects, nextSubjects, subjectId) {
+  const prev = prevSubjects.find((s) => s.id === subjectId)
+  const next = nextSubjects.find((s) => s.id === subjectId)
+  if (!prev || !next) return []
+  const newlyCompleted = []
+  for (const topic of next.topics) {
+    if (topic.checklistItems.length === 0) continue
+    const prevTopic = prev.topics.find((t) => t.id === topic.id)
+    if (!prevTopic) continue
+    const hadNotStarted = prevTopic.checklistItems.some((i) => i.status === 'not_started')
+    const hasNotStarted = topic.checklistItems.some((i) => i.status === 'not_started')
+    if (hadNotStarted && !hasNotStarted) {
+      newlyCompleted.push(topic.id)
+    }
+  }
+  return newlyCompleted
+}
+
+function applyQuizPrompts(topicQuizPrompts, newlyCompletedTopicIds) {
+  if (newlyCompletedTopicIds.length === 0) return topicQuizPrompts
+  const promptTime = now()
+  const updated = { ...topicQuizPrompts }
+  for (const topicId of newlyCompletedTopicIds) {
+    if (!updated[topicId]?.promptedAt) {
+      updated[topicId] = { promptedAt: promptTime, dismissedAt: null, quizCompletedAt: null }
+    }
+  }
+  return updated
 }
 
 function reducer(state, action) {
@@ -125,7 +174,6 @@ function reducer(state, action) {
           revisionCount: status !== 'not_started' ? item.revisionCount + 1 : item.revisionCount,
         })
       )
-      // Award secure bonus if newly secure
       let rewards = state.rewards
       const wasNotSecure = (() => {
         for (const sub of state.subjects) {
@@ -142,7 +190,9 @@ function reducer(state, action) {
       if (status === 'secure' && wasNotSecure) {
         rewards = { ...state.rewards, points: state.rewards.points + 5 }
       }
-      return { ...state, subjects, rewards }
+      const newlyCompleted = detectNewlyCompletedTopics(state.subjects, subjects, subjectId)
+      const topicQuizPrompts = applyQuizPrompts(state.topicQuizPrompts, newlyCompleted)
+      return { ...state, subjects, rewards, topicQuizPrompts }
     }
 
     case 'SET_CONFIDENCE': {
@@ -164,7 +214,6 @@ function reducer(state, action) {
       let secureBonus = 0
 
       if (session.checklistItemIds && session.checklistItemIds.length > 0) {
-        // Track which items were not secure before this session
         const prevSecureIds = new Set()
         for (const sub of state.subjects) {
           if (sub.id !== session.subjectId) continue
@@ -183,8 +232,12 @@ function reducer(state, action) {
               ...topic,
               checklistItems: topic.checklistItems.map((item) => {
                 if (!session.checklistItemIds.includes(item.id)) return item
-                const newStatus = confidenceToStatus(session.confidenceAfter, item.status)
-                // Track newly secured items
+                const newStatus = confidenceToStatus(
+                  session.confidenceAfter,
+                  item.status,
+                  session.score,
+                  session.totalQuestions
+                )
                 if (newStatus === 'secure' && !prevSecureIds.has(item.id)) {
                   secureBonus += 5
                 }
@@ -210,7 +263,10 @@ function reducer(state, action) {
       const newBadges = checkNewBadges(sessions, subjects, existingIds)
       updatedRewards.badges = [...updatedRewards.badges, ...newBadges]
 
-      return { ...state, subjects, sessions, rewards: updatedRewards, newBadges }
+      const newlyCompleted = detectNewlyCompletedTopics(state.subjects, subjects, session.subjectId)
+      const topicQuizPrompts = applyQuizPrompts(state.topicQuizPrompts, newlyCompleted)
+
+      return { ...state, subjects, sessions, rewards: updatedRewards, newBadges, topicQuizPrompts }
     }
 
     case 'CLEAR_NEW_BADGES':
@@ -219,6 +275,28 @@ function reducer(state, action) {
     case 'UPDATE_SETTINGS': {
       const settings = { ...state.settings, ...action.changes }
       return { ...state, settings }
+    }
+
+    case 'DISMISS_TOPIC_QUIZ_PROMPT': {
+      const topicQuizPrompts = {
+        ...state.topicQuizPrompts,
+        [action.topicId]: {
+          ...(state.topicQuizPrompts[action.topicId] || {}),
+          dismissedAt: now(),
+        },
+      }
+      return { ...state, topicQuizPrompts }
+    }
+
+    case 'COMPLETE_TOPIC_QUIZ_PROMPT': {
+      const topicQuizPrompts = {
+        ...state.topicQuizPrompts,
+        [action.topicId]: {
+          ...(state.topicQuizPrompts[action.topicId] || {}),
+          quizCompletedAt: now(),
+        },
+      }
+      return { ...state, topicQuizPrompts }
     }
 
     case 'IMPORT_DATA': {
@@ -230,6 +308,7 @@ function reducer(state, action) {
         rewards: sanitizeRewards(d.REWARDS),
         settings: d.SETTINGS || state.settings,
         newBadges: [],
+        topicQuizPrompts: sanitizeTopicQuizPrompts(d.TOPIC_QUIZ_PROMPTS),
       }
     }
 
@@ -241,6 +320,7 @@ function reducer(state, action) {
         rewards: { points: 0, badges: [] },
         settings: { name: '', theme: 'light' },
         newBadges: [],
+        topicQuizPrompts: {},
       }
     }
 
@@ -257,6 +337,7 @@ export function AppProvider({ children }) {
   useEffect(() => { save(KEYS.SESSIONS, state.sessions) }, [state.sessions])
   useEffect(() => { save(KEYS.REWARDS, state.rewards) }, [state.rewards])
   useEffect(() => { save(KEYS.SETTINGS, state.settings) }, [state.settings])
+  useEffect(() => { save(KEYS.TOPIC_QUIZ_PROMPTS, state.topicQuizPrompts) }, [state.topicQuizPrompts])
 
   const setupProfile = useCallback((name) => dispatch({ type: 'SETUP_PROFILE', name }), [])
 
@@ -280,6 +361,12 @@ export function AppProvider({ children }) {
 
   const resetAll = useCallback(() => dispatch({ type: 'RESET_ALL' }), [])
 
+  const dismissTopicQuizPrompt = useCallback((topicId) =>
+    dispatch({ type: 'DISMISS_TOPIC_QUIZ_PROMPT', topicId }), [])
+
+  const completeTopicQuizPrompt = useCallback((topicId) =>
+    dispatch({ type: 'COMPLETE_TOPIC_QUIZ_PROMPT', topicId }), [])
+
   return (
     <AppContext.Provider value={{
       ...state,
@@ -292,6 +379,8 @@ export function AppProvider({ children }) {
       updateSettings,
       importData,
       resetAll,
+      dismissTopicQuizPrompt,
+      completeTopicQuizPrompt,
     }}>
       {children}
     </AppContext.Provider>
