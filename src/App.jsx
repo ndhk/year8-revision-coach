@@ -1,6 +1,7 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext.jsx'
+import { ActiveSessionProvider } from './context/ActiveSessionContext.jsx'
 import Layout from './components/Layout.jsx'
 import Setup from './screens/Setup.jsx'
 import Dashboard from './screens/Dashboard.jsx'
@@ -48,7 +49,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <AppProvider>
-      <AppRoutes />
+      <ActiveSessionProvider>
+        <AppRoutes />
+      </ActiveSessionProvider>
     </AppProvider>
   )
 }

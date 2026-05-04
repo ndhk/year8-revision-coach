@@ -4,6 +4,7 @@ export const KEYS = {
   SESSIONS: 'yr8_sessions',
   REWARDS: 'yr8_rewards',
   SETTINGS: 'yr8_settings',
+  ACTIVE_SESSION: 'yr8_active_session',
 }
 
 export function load(key, fallback = null) {

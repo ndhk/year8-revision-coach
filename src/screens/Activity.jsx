@@ -1,13 +1,14 @@
-import React, { useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
+import { useActiveSession } from '../context/ActiveSessionContext.jsx'
 import ConfidenceRater from '../components/ConfidenceRater.jsx'
 import {
+  ACTIVITIES,
   getActivitiesForSubject,
   suggestConfidence,
   ACTIVITY_SUBJECT_IDS,
 } from '../data/activities.js'
-import { now } from '../utils/dates.js'
 
 function shuffle(arr) {
   const a = [...arr]
@@ -36,7 +37,13 @@ function scoreFeedback(pct) {
   return 'This topic needs more work. Review your notes and try again.'
 }
 
-// ── MCCard ────────────────────────────────────────────────────────
+// Reconstruct ordered queue from stored IDs (handles deletions gracefully).
+function queueFromIds(ids) {
+  if (!ids || !Array.isArray(ids)) return []
+  return ids.map((id) => ACTIVITIES.find((a) => a.id === id)).filter(Boolean)
+}
+
+// ── MCCard ───────────────────────────────────────────────────────────────────
 
 function MCCard({ activity, onAnswer }) {
   const [selected, setSelected] = useState(null)
@@ -78,7 +85,7 @@ function MCCard({ activity, onAnswer }) {
   )
 }
 
-// ── FlashCard ─────────────────────────────────────────────────────
+// ── FlashCard ────────────────────────────────────────────────────────────────
 
 function FlashCard({ activity, onAnswer }) {
   const [flipped, setFlipped] = useState(false)
@@ -123,7 +130,7 @@ function FlashCard({ activity, onAnswer }) {
   )
 }
 
-// ── OpenCard ──────────────────────────────────────────────────────
+// ── OpenCard ─────────────────────────────────────────────────────────────────
 
 function OpenCard({ activity, onAnswer }) {
   const [revealed, setRevealed] = useState(false)
@@ -180,72 +187,187 @@ function OpenCard({ activity, onAnswer }) {
   )
 }
 
-// ── Main Activity component ───────────────────────────────────────
+// ── Main Activity component ──────────────────────────────────────────────────
 
 export default function Activity() {
   const { subjectId: paramSubjectId } = useParams()
-  const { subjects, completeSession } = useApp()
+  const { subjects } = useApp()
+  const {
+    activeSession,
+    startActiveSession,
+    updateActiveSessionDraft,
+    completeActiveSession,
+    cancelActiveSession,
+  } = useActiveSession()
   const navigate = useNavigate()
+  const location = useLocation()
+  const preState = location.state || {}
+  const confidenceRef = useRef(null)
 
-  const [subjectId, setSubjectId] = useState(paramSubjectId || '')
+  const isActivitySession = activeSession?.activityType === 'activity'
+  const savedDraft = isActivitySession ? (activeSession.answersDraft || {}) : {}
+
+  // ── State — initialised from active session draft on resume ───────────────
+  const [subjectId, setSubjectId] = useState(
+    () => (isActivitySession ? activeSession.subjectId : (paramSubjectId || ''))
+  )
   const [count, setCount] = useState(10)
 
-  const [phase, setPhase] = useState('setup')
-  const [queue, setQueue] = useState([])
-  const [current, setCurrentIdx] = useState(0)
-  const [results, setResults] = useState([])
-  const [answered, setAnswered] = useState(false)
+  // 'setup' | 'running' | 'review'
+  const [phase, setPhase] = useState(() => {
+    if (isActivitySession) return savedDraft.phase || 'running'
+    return 'setup'
+  })
 
-  const [confidence, setConfidence] = useState(null)
-  const [suggestedConf, setSuggestedConf] = useState(null)
+  const [queue, setQueue] = useState(() =>
+    isActivitySession ? queueFromIds(savedDraft.queueIds) : []
+  )
+  const [current, setCurrentIdx] = useState(() => savedDraft.currentIdx || 0)
+  const [results, setResults] = useState(() => savedDraft.results || [])
+  const [answered, setAnswered] = useState(() => savedDraft.answered || false)
+
+  const [confidence, setConfidence] = useState(() => activeSession?.confidenceDraft || null)
+  const [suggestedConf, setSuggestedConf] = useState(() => savedDraft.suggestedConf || null)
   const [confidenceError, setConfidenceError] = useState(false)
-  const [notes, setNotes] = useState('')
+  const [notes, setNotes] = useState(() => activeSession?.notesDraft || '')
 
-  const startedAtRef = useRef(null)
+  // Reset to setup if active session is cancelled externally while on this screen.
+  useEffect(() => {
+    if (phase !== 'setup' && !activeSession) {
+      setPhase('setup')
+      setQueue([])
+      setResults([])
+      setCurrentIdx(0)
+      setAnswered(false)
+      setConfidence(null)
+      setSuggestedConf(null)
+      setNotes('')
+    }
+  }, [phase, activeSession])
 
+  // If banner sends "Finish" while activity is still running, jump to review.
+  useEffect(() => {
+    if (preState.finishRequested && phase === 'running' && queue.length > 0) {
+      jumpToReview(results)
+    }
+  }, []) // only on first mount with this state
+
+  // Scroll confidence into view when Finish is requested and we are in review.
+  useEffect(() => {
+    if (preState.finishRequested && phase === 'review') {
+      const t = setTimeout(() => {
+        confidenceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 120)
+      return () => clearTimeout(t)
+    }
+  }, [preState.finishRequested, phase])
+
+  // ── Draft helpers ─────────────────────────────────────────────────────────
+  const saveDraft = useCallback((overrides = {}) => {
+    updateActiveSessionDraft({
+      answersDraft: {
+        queueIds: queue.map((a) => a.id),
+        results: overrides.results ?? results,
+        currentIdx: overrides.currentIdx ?? current,
+        answered: overrides.answered ?? answered,
+        phase: overrides.phase ?? phase,
+        suggestedConf: overrides.suggestedConf ?? suggestedConf,
+      },
+      ...(overrides.scoreDraft !== undefined ? { scoreDraft: overrides.scoreDraft } : {}),
+      ...(overrides.totalQuestionsDraft !== undefined
+        ? { totalQuestionsDraft: overrides.totalQuestionsDraft }
+        : {}),
+    })
+  }, [updateActiveSessionDraft, queue, results, current, answered, phase, suggestedConf])
+
+  // ── Derived ───────────────────────────────────────────────────────────────
   const activitySubjects = subjects.filter((s) => ACTIVITY_SUBJECT_IDS.includes(s.id))
-  const subject = subjects.find((s) => s.id === subjectId)
+  const activeSubjectId = isActivitySession ? activeSession.subjectId : subjectId
+  const subject = subjects.find((s) => s.id === activeSubjectId)
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   function startActivity() {
     if (!subjectId) return
     const all = getActivitiesForSubject(subjectId)
     const shuffled = shuffle(all)
-    const picked =
-      count === 'all' ? shuffled : shuffled.slice(0, Math.min(count, shuffled.length))
+    const picked = count === 'all' ? shuffled : shuffled.slice(0, Math.min(count, shuffled.length))
     if (picked.length === 0) return
+
+    const topicIds = [...new Set(picked.map((a) => a.topicId))]
+    const topicId = topicIds.length === 1 ? topicIds[0] : null
+    const checklistItemIds = [...new Set(picked.map((a) => a.checklistItemId))]
+
+    startActiveSession({
+      subjectId,
+      topicId,
+      checklistItemIds,
+      activityType: 'activity',
+      method: 'quiz',
+      durationMinutes: 15,
+    })
+
+    const initialResults = []
     setQueue(picked)
-    setResults([])
+    setResults(initialResults)
     setCurrentIdx(0)
     setAnswered(false)
     setConfidence(null)
     setSuggestedConf(null)
-    startedAtRef.current = now()
+    setNotes('')
+    setConfidenceError(false)
     setPhase('running')
+
+    // Persist initial queue so resume can reconstruct it.
+    updateActiveSessionDraft({
+      answersDraft: {
+        queueIds: picked.map((a) => a.id),
+        results: initialResults,
+        currentIdx: 0,
+        answered: false,
+        phase: 'running',
+        suggestedConf: null,
+      },
+    })
   }
 
   function handleAnswer(result) {
-    setResults((prev) => [...prev, result])
+    const newResults = [...results, result]
+    setResults(newResults)
     setAnswered(true)
+    saveDraft({ results: newResults, answered: true })
   }
 
-  function goToReview(allResults) {
+  function jumpToReview(allResults) {
     const scored = allResults.filter((r) => r !== null)
     const correct = allResults.filter((r) => r === true).length
+    let sug = null
     if (scored.length > 0) {
-      const sug = suggestConfidence(correct, scored.length)
+      sug = suggestConfidence(correct, scored.length)
       setSuggestedConf(sug)
       setConfidence(sug)
+      updateActiveSessionDraft({ confidenceDraft: sug })
     }
+    const scoredCount = scored.length
+    const correctCount = correct
     setPhase('review')
+    saveDraft({
+      results: allResults,
+      phase: 'review',
+      suggestedConf: sug,
+      scoreDraft: scoredCount > 0 ? correctCount : null,
+      totalQuestionsDraft: scoredCount > 0 ? scoredCount : null,
+    })
   }
 
   function advance() {
     const nextIdx = current + 1
     if (nextIdx >= queue.length) {
-      goToReview(results)
+      jumpToReview(results)
     } else {
       setCurrentIdx(nextIdx)
       setAnswered(false)
+      saveDraft({ currentIdx: nextIdx, answered: false })
     }
   }
 
@@ -254,42 +376,58 @@ export default function Activity() {
     setResults(newResults)
     const nextIdx = current + 1
     if (nextIdx >= queue.length) {
-      goToReview(newResults)
+      jumpToReview(newResults)
     } else {
       setCurrentIdx(nextIdx)
       setAnswered(false)
+      saveDraft({ results: newResults, currentIdx: nextIdx, answered: false })
     }
+  }
+
+  function handleConfidenceChange(c) {
+    setConfidence(c)
+    setConfidenceError(false)
+    updateActiveSessionDraft({ confidenceDraft: c })
+  }
+
+  function handleNotesChange(e) {
+    const val = e.target.value
+    setNotes(val)
+    updateActiveSessionDraft({ notesDraft: val })
   }
 
   function finishActivity() {
     if (!confidence) {
       setConfidenceError(true)
+      confidenceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
     const scored = results.filter((r) => r !== null)
     const correct = results.filter((r) => r === true).length
-    const checklistItemIds = [...new Set(queue.map((a) => a.checklistItemId))]
-    const topicIds = [...new Set(queue.map((a) => a.topicId))]
-    const topicId = topicIds.length === 1 ? topicIds[0] : null
-
-    const session = {
-      id: `session_${Date.now()}`,
-      subjectId,
-      topicId,
-      checklistItemIds,
-      startedAt: startedAtRef.current,
-      method: 'quiz',
-      activityType: 'activity',
-      confidenceAfter: confidence,
+    completeActiveSession({
+      confidence,
       notes: notes.trim() || null,
       score: scored.length > 0 ? correct : null,
       totalQuestions: scored.length > 0 ? scored.length : null,
-    }
-    completeSession(session)
+    })
     navigate('/dashboard')
   }
 
-  // Fallback for invalid route param
+  function handleCancelSession() {
+    if (window.confirm('Cancel this activity session? Progress will not be saved.')) {
+      cancelActiveSession()
+      setPhase('setup')
+      setQueue([])
+      setResults([])
+      setCurrentIdx(0)
+      setAnswered(false)
+      setConfidence(null)
+      setSuggestedConf(null)
+      setNotes('')
+    }
+  }
+
+  // ── Fallback for invalid route param ──────────────────────────────────────
   if (paramSubjectId && !ACTIVITY_SUBJECT_IDS.includes(paramSubjectId)) {
     return (
       <div className="screen screen--centered">
@@ -305,7 +443,43 @@ export default function Activity() {
     )
   }
 
-  // ── Review phase ──────────────────────────────────────────────
+  // ── Conflict: a non-activity session is already active ────────────────────
+  if (phase === 'setup' && activeSession && !isActivitySession) {
+    const conflictSubject = subjects.find((s) => s.id === activeSession.subjectId)
+    return (
+      <div className="screen">
+        <h2 className="screen__heading">Activities</h2>
+        <div className="card">
+          <h3 className="card__title">Session already in progress</h3>
+          <p className="muted-text" style={{ marginBottom: 12 }}>
+            You have an active revision session for{' '}
+            <strong>{conflictSubject?.name || activeSession.subjectId}</strong>. Resume or cancel it
+            before starting an activity.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button
+              className="btn btn--primary btn--full"
+              onClick={() => navigate('/session', { state: { resuming: true } })}
+            >
+              Resume revision session
+            </button>
+            <button
+              className="btn btn--ghost btn--full"
+              onClick={() => {
+                if (window.confirm('Cancel the current revision session? Progress will not be saved.')) {
+                  cancelActiveSession()
+                }
+              }}
+            >
+              Cancel it and start an activity
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Review phase ──────────────────────────────────────────────────────────
   if (phase === 'review') {
     const scored = results.filter((r) => r !== null)
     const correct = results.filter((r) => r === true).length
@@ -330,7 +504,10 @@ export default function Activity() {
           </p>
         </div>
 
-        <div className="card">
+        <div
+          ref={confidenceRef}
+          className={`card${confidenceError ? ' card--error' : ''}`}
+        >
           <label className="form-label">
             How confident do you feel about {subject?.name}?{' '}
             <span className="required-star">*</span>
@@ -341,12 +518,14 @@ export default function Activity() {
               <strong>{CONF_LABELS[suggestedConf]}</strong>
             </p>
           )}
+          {preState.finishRequested && !confidence && (
+            <p className="form-hint session-finish-hint">
+              Choose your confidence rating to complete the session.
+            </p>
+          )}
           <ConfidenceRater
             value={confidence}
-            onChange={(c) => {
-              setConfidence(c)
-              setConfidenceError(false)
-            }}
+            onChange={handleConfidenceChange}
           />
           {confidenceError && (
             <p className="form-error">Please rate your confidence before completing.</p>
@@ -361,7 +540,7 @@ export default function Activity() {
             rows={3}
             placeholder="What did you find tricky? Any concepts to revisit?"
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={handleNotesChange}
           />
         </div>
 
@@ -370,26 +549,40 @@ export default function Activity() {
         </button>
         <button
           className="btn btn--ghost btn--full mt-2"
-          onClick={() => {
-            setPhase('setup')
-            setQueue([])
-            setResults([])
-            setAnswered(false)
-            setConfidence(null)
-            setSuggestedConf(null)
-            setNotes('')
-          }}
+          onClick={handleCancelSession}
         >
-          Try again
+          Cancel session
         </button>
       </div>
     )
   }
 
-  // ── Running phase ─────────────────────────────────────────────
+  // ── Running phase ─────────────────────────────────────────────────────────
   if (phase === 'running') {
     const activity = queue[current]
-    if (!activity) return null
+
+    if (!activity) {
+      // Queue is empty — malformed session, return to setup.
+      return (
+        <div className="screen screen--centered">
+          <div className="placeholder-screen">
+            <div className="placeholder-screen__icon">🎯</div>
+            <h2>Something went wrong</h2>
+            <p>Could not load the activity. Please start a new session.</p>
+            <button
+              className="btn btn--primary mt-2"
+              onClick={() => {
+                cancelActiveSession()
+                setPhase('setup')
+              }}
+            >
+              Back to setup
+            </button>
+          </div>
+        </div>
+      )
+    }
+
     const progress = Math.round((results.length / queue.length) * 100)
     const isLast = current === queue.length - 1
 
@@ -436,11 +629,19 @@ export default function Activity() {
             </button>
           )}
         </div>
+
+        <button
+          className="btn btn--ghost btn--full mt-2"
+          style={{ fontSize: '0.82rem' }}
+          onClick={handleCancelSession}
+        >
+          Cancel session
+        </button>
       </div>
     )
   }
 
-  // ── Setup phase ───────────────────────────────────────────────
+  // ── Setup phase ───────────────────────────────────────────────────────────
   return (
     <div className="screen">
       <h2 className="screen__heading">Activities</h2>

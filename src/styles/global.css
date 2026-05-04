@@ -1416,6 +1416,192 @@ ul { list-style: none; }
 .session-banner__items { font-size: 0.72rem; color: var(--color-text-muted); margin-top: 2px; }
 
 /* ============================================================
+   Active Session Banner
+   ============================================================ */
+:root {
+  --banner-h: 58px;
+}
+
+.active-session-banner {
+  position: fixed;
+  top: var(--header-h);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--max-w);
+  height: var(--banner-h);
+  background: var(--color-surface);
+  border-bottom: 2px solid var(--asb-color, var(--color-primary));
+  border-top: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  gap: 8px;
+  z-index: 90;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+.active-session-banner--done {
+  background: var(--color-success-light);
+  border-bottom-color: var(--color-success);
+}
+
+.active-session-banner--confirm {
+  gap: 10px;
+}
+
+/* Shift content down to make room for banner */
+.app-shell--has-banner .app-content {
+  padding-top: calc(var(--header-h) + var(--banner-h));
+}
+
+.asb-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.asb-emoji {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.asb-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.asb-subject {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--asb-color, var(--color-primary));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.asb-topic {
+  font-size: 0.68rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.asb-timer {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 0 6px;
+}
+
+.asb-timer--remaining { color: var(--color-text); }
+.asb-timer--done { color: var(--color-success); font-size: 0.72rem; }
+
+.asb-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+/* Banner buttons — compact */
+.asb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+  min-height: 34px;
+}
+.asb-btn:hover { opacity: 0.85; }
+
+.asb-btn--primary {
+  background: var(--asb-color, var(--color-primary));
+  color: white;
+}
+
+.asb-btn--success {
+  background: var(--color-success);
+  color: white;
+}
+
+.asb-btn--ghost {
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.asb-btn--danger {
+  background: var(--color-danger);
+  color: white;
+}
+
+.asb-btn--cancel {
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  padding: 6px 8px;
+  min-width: 30px;
+}
+
+/* Confirm cancel layout */
+.asb-confirm__text {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.asb-confirm__btns {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Timer extras ── */
+.timer__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.timer--done { color: var(--color-success); }
+
+.timer__ring-fill--done { stroke: var(--color-success); }
+
+.timer__display--done {
+  font-size: 2rem;
+  color: var(--color-success);
+}
+
+.timer__done-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+/* Finish-from-banner hint */
+.session-finish-hint {
+  color: var(--color-warning) !important;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* ============================================================
    Desktop adjustments
    ============================================================ */
 @media (min-width: 600px) {
@@ -1793,4 +1979,24 @@ ul { list-style: none; }
 @media (max-width: 400px) {
   .act-header__subject { font-size: 0.82rem; }
   .act-self-assess__btns .btn { font-size: 0.8rem; padding: 8px 8px; }
+}
+
+/* ============================================================
+   Active Session Banner — mobile
+   ============================================================ */
+@media (max-width: 430px) {
+  .asb-btn--primary,
+  .asb-btn--success {
+    padding: 6px 8px;
+    font-size: 0.7rem;
+  }
+  .asb-timer { font-size: 0.78rem; padding: 0 4px; }
+  .asb-subject { font-size: 0.72rem; }
+  .asb-topic { display: none; }
+}
+
+@media (max-width: 390px) {
+  :root { --banner-h: 54px; }
+  .asb-emoji { font-size: 1rem; }
+  .asb-actions { gap: 4px; }
 }

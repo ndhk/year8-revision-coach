@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
+import { useActiveSession } from '../context/ActiveSessionContext.jsx'
 import Timer from '../components/Timer.jsx'
 import ConfidenceRater from '../components/ConfidenceRater.jsx'
-import { now } from '../utils/dates.js'
 
 const METHODS = [
   { id: 'read_notes', label: 'Read notes', desc: 'Go through your class notes or the revision guide.' },
@@ -15,54 +15,112 @@ const METHODS = [
   { id: 'quiz', label: 'Quiz', desc: 'Self-quiz using questions from your notes.' },
 ]
 
+const DURATIONS = [10, 15, 20, 30]
+
 export default function RevisionSession() {
   const { subjectId: paramSubjectId } = useParams()
-  const { subjects, completeSession } = useApp()
+  const { subjects } = useApp()
+  const {
+    activeSession,
+    startActiveSession,
+    updateActiveSessionDraft,
+    completeActiveSession,
+    cancelActiveSession,
+  } = useActiveSession()
   const navigate = useNavigate()
   const location = useLocation()
-
-  // Pre-populate from navigation state (set by ChecklistItemRow or suggested task)
   const preState = location.state || {}
+  const confidenceRef = useRef(null)
 
+  // ── Setup form state (only used when no active session) ──────────
   const [subjectId, setSubjectId] = useState(paramSubjectId || preState.subjectId || '')
   const [selectedTopicId, setSelectedTopicId] = useState(preState.topicId || '')
   const [selectedItemIds, setSelectedItemIds] = useState(
     preState.itemId ? [preState.itemId] : []
   )
   const [method, setMethod] = useState('read_notes')
-  const [notes, setNotes] = useState('')
-  const [confidence, setConfidence] = useState(null)
+  const [durationMinutes, setDurationMinutes] = useState(15)
+
+  // ── Session phase local mirrors of active session draft ──────────
+  const [notes, setNotes] = useState(activeSession?.notesDraft || '')
+  const [confidence, setConfidence] = useState(activeSession?.confidenceDraft || null)
   const [confidenceError, setConfidenceError] = useState(false)
-  const [phase, setPhase] = useState('setup') // 'setup' | 'session' | 'review'
-  const [timerDone, setTimerDone] = useState(false)
-  const startedAtRef = useRef(null)
 
-  const subject = subjects.find((s) => s.id === subjectId)
-  const topic = subject?.topics.find((t) => t.id === selectedTopicId)
+  // ── Phase ────────────────────────────────────────────────────────
+  // 'setup' | 'session' | 'review'
+  const [phase, setPhase] = useState(() => (activeSession ? 'session' : 'setup'))
 
-  function startSession() {
-    if (!subjectId) return
-    startedAtRef.current = now()
-    setPhase('session')
-  }
-
-  function finishSession() {
-    if (!confidence) {
-      setConfidenceError(true)
-      return
+  // If banner cancels the session while we are on the session screen,
+  // fall back to setup.
+  useEffect(() => {
+    if (phase === 'session' && !activeSession) {
+      setPhase('setup')
     }
-    const session = {
-      id: `session_${Date.now()}`,
+  }, [phase, activeSession])
+
+  // Scroll to confidence rater when Finish is requested from the banner.
+  useEffect(() => {
+    if (preState.finishRequested && phase === 'session') {
+      const t = setTimeout(() => {
+        confidenceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 120)
+      return () => clearTimeout(t)
+    }
+  }, [preState.finishRequested, phase])
+
+  // Sync local draft state when session ID changes (new session started).
+  useEffect(() => {
+    if (activeSession) {
+      setNotes(activeSession.notesDraft || '')
+      setConfidence(activeSession.confidenceDraft || null)
+      setConfidenceError(false)
+    }
+  }, [activeSession?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Derived ──────────────────────────────────────────────────────
+  const sessionSubject = activeSession
+    ? subjects.find((s) => s.id === activeSession.subjectId)
+    : null
+  const sessionTopic = sessionSubject?.topics.find((t) => t.id === activeSession?.topicId)
+
+  const setupSubject = subjects.find((s) => s.id === subjectId)
+  const setupTopic = setupSubject?.topics.find((t) => t.id === selectedTopicId)
+
+  // ── Handlers ─────────────────────────────────────────────────────
+  function handleStartSession() {
+    if (!subjectId) return
+    startActiveSession({
       subjectId,
       topicId: selectedTopicId || null,
       checklistItemIds: selectedItemIds,
-      startedAt: startedAtRef.current,
-      endedAt: now(),
       method,
-      confidenceAfter: confidence,
-      notes,
+      durationMinutes,
+    })
+    setNotes('')
+    setConfidence(null)
+    setConfidenceError(false)
+    setPhase('session')
+  }
+
+  function handleNotesChange(e) {
+    const val = e.target.value
+    setNotes(val)
+    updateActiveSessionDraft({ notesDraft: val })
+  }
+
+  function handleConfidenceChange(c) {
+    setConfidence(c)
+    setConfidenceError(false)
+    updateActiveSessionDraft({ confidenceDraft: c })
+  }
+
+  function handleComplete() {
+    if (!confidence) {
+      setConfidenceError(true)
+      confidenceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
     }
-    completeSession(session)
+    completeActiveSession({ confidence, notes })
     setPhase('review')
   }
 
@@ -72,7 +130,7 @@ export default function RevisionSession() {
     )
   }
 
-  // ── Review phase ──────────────────────────────────────────────
+  // ── Review phase ─────────────────────────────────────────────────
   if (phase === 'review') {
     const statusNote =
       confidence >= 4
@@ -81,6 +139,8 @@ export default function RevisionSession() {
         ? 'Items flagged as Needs Review — keep working on these.'
         : 'Items updated to Practised.'
 
+    const reviewSubject = sessionSubject
+
     return (
       <div className="screen screen--centered">
         <div className="session-complete">
@@ -88,12 +148,12 @@ export default function RevisionSession() {
           <h2>Session complete!</h2>
           <p>{statusNote}</p>
           <div className="session-complete__actions">
-            {subjectId && (
+            {reviewSubject && (
               <button
                 className="btn btn--primary"
-                onClick={() => navigate(`/subjects/${subjectId}`)}
+                onClick={() => navigate(`/subjects/${reviewSubject.id}`)}
               >
-                View {subject?.name || 'subject'}
+                View {reviewSubject.name}
               </button>
             )}
             <button
@@ -110,7 +170,6 @@ export default function RevisionSession() {
                 setConfidence(null)
                 setConfidenceError(false)
                 setSelectedItemIds([])
-                setTimerDone(false)
               }}
             >
               Start another
@@ -121,38 +180,39 @@ export default function RevisionSession() {
     )
   }
 
-  // ── Active session phase ──────────────────────────────────────
-  if (phase === 'session') {
+  // ── Active session phase ─────────────────────────────────────────
+  if (phase === 'session' && activeSession) {
+    const itemsInSession = activeSession.checklistItemIds || []
+
     return (
       <div className="screen">
         <div className="card">
           <div
             className="session-banner"
-            style={{ '--subject-color': subject?.color || '#5b4cdb' }}
+            style={{ '--subject-color': sessionSubject?.color || '#5b4cdb' }}
           >
-            <span className="session-banner__emoji">{subject?.emoji}</span>
+            <span className="session-banner__emoji">{sessionSubject?.emoji}</span>
             <div>
-              <div className="session-banner__subject">{subject?.name}</div>
-              {topic && <div className="session-banner__topic">{topic.title}</div>}
-              {selectedItemIds.length > 0 && (
+              <div className="session-banner__subject">{sessionSubject?.name}</div>
+              {sessionTopic && (
+                <div className="session-banner__topic">{sessionTopic.title}</div>
+              )}
+              {itemsInSession.length > 0 && (
                 <div className="session-banner__items">
-                  {selectedItemIds.length} item{selectedItemIds.length !== 1 ? 's' : ''} selected
+                  {itemsInSession.length} item{itemsInSession.length !== 1 ? 's' : ''} selected
                 </div>
               )}
             </div>
           </div>
           <div className="session-banner__method">
-            Method: {METHODS.find((m) => m.id === method)?.label}
+            Method: {METHODS.find((m) => m.id === activeSession.method)?.label}
           </div>
         </div>
 
-        <Timer minutes={15} onComplete={() => setTimerDone(true)} />
-
-        {timerDone && (
-          <div className="card card--success">
-            <p>⏱ 15 minutes done! Fill in your confidence and wrap up below.</p>
-          </div>
-        )}
+        <Timer
+          startedAt={activeSession.startedAt}
+          durationMinutes={activeSession.durationMinutes}
+        />
 
         <div className="card">
           <label className="form-label">Notes (optional)</label>
@@ -161,28 +221,36 @@ export default function RevisionSession() {
             rows={3}
             placeholder="What did you cover? Any tricky bits to come back to?"
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={handleNotesChange}
           />
         </div>
 
-        <div className={`card${confidenceError ? ' card--error' : ''}`}>
+        <div
+          ref={confidenceRef}
+          className={`card${confidenceError ? ' card--error' : ''}`}
+        >
           <label className="form-label">
             How confident do you feel now? <span className="required-star">*</span>
           </label>
+          {preState.finishRequested && !confidence && (
+            <p className="form-hint session-finish-hint">
+              Choose your confidence rating to complete the session.
+            </p>
+          )}
           <ConfidenceRater
             value={confidence}
-            onChange={(c) => { setConfidence(c); setConfidenceError(false) }}
+            onChange={handleConfidenceChange}
           />
           {confidenceError && (
             <p className="form-error">Please rate your confidence before completing the session.</p>
           )}
         </div>
 
-        {selectedItemIds.length > 0 && topic && (
+        {itemsInSession.length > 0 && sessionTopic && (
           <div className="card">
             <label className="form-label">Items worked on</label>
-            {topic.checklistItems
-              .filter((c) => selectedItemIds.includes(c.id))
+            {sessionTopic.checklistItems
+              .filter((c) => itemsInSession.includes(c.id))
               .map((c) => (
                 <div key={c.id} className="session-item-tag">✓ {c.title}</div>
               ))}
@@ -191,15 +259,27 @@ export default function RevisionSession() {
 
         <button
           className="btn btn--primary btn--full btn--lg"
-          onClick={finishSession}
+          onClick={handleComplete}
         >
           Complete session ✓
+        </button>
+
+        <button
+          className="btn btn--ghost btn--full"
+          onClick={() => {
+            if (window.confirm('Cancel this session? Progress will not be saved.')) {
+              cancelActiveSession()
+              navigate('/dashboard')
+            }
+          }}
+        >
+          Cancel session
         </button>
       </div>
     )
   }
 
-  // ── Setup phase ───────────────────────────────────────────────
+  // ── Setup phase ───────────────────────────────────────────────────
   return (
     <div className="screen">
       <h2 className="screen__heading">Set up your session</h2>
@@ -225,7 +305,7 @@ export default function RevisionSession() {
         </select>
       </div>
 
-      {subject && (
+      {setupSubject && (
         <div className="card">
           <label className="form-label" htmlFor="topic-select">Topic (optional)</label>
           <select
@@ -238,18 +318,18 @@ export default function RevisionSession() {
             }}
           >
             <option value="">— all topics —</option>
-            {subject.topics.map((t) => (
+            {setupSubject.topics.map((t) => (
               <option key={t.id} value={t.id}>{t.title}</option>
             ))}
           </select>
         </div>
       )}
 
-      {topic && (
+      {setupTopic && (
         <div className="card">
           <label className="form-label">Checklist items to focus on (optional)</label>
           <div className="item-picker">
-            {topic.checklistItems.map((item) => (
+            {setupTopic.checklistItems.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -286,10 +366,26 @@ export default function RevisionSession() {
         <p className="form-hint">{METHODS.find((m) => m.id === method)?.desc}</p>
       </div>
 
+      <div className="card">
+        <label className="form-label">Duration</label>
+        <div className="method-grid">
+          {DURATIONS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              className={`method-btn${durationMinutes === d ? ' method-btn--active' : ''}`}
+              onClick={() => setDurationMinutes(d)}
+            >
+              {d} min
+            </button>
+          ))}
+        </div>
+      </div>
+
       <button
         className="btn btn--primary btn--full btn--lg"
         disabled={!subjectId}
-        onClick={startSession}
+        onClick={handleStartSession}
       >
         Start session ▶
       </button>
